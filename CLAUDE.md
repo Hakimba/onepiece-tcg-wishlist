@@ -115,34 +115,85 @@ agent-browser --session cm open "https://www.cardmarket.com<href_du_lien_JP>"
 
 ### Étape 4 — Extraire le meilleur vendeur (JS)
 
+Utiliser `--stdin` avec heredoc pour le script (évite les problèmes d'échappement) :
+
 ```bash
-agent-browser --session cm eval '(() => {
+cat <<'JSEOF' | agent-browser --session cm eval --stdin
+(() => {
   const rows = document.querySelectorAll(".table-body .row");
-  const seen = new Set();
   const sellers = [];
+  const seen = new Set();
   rows.forEach(row => {
-    const nameEl = row.querySelector("a[href*=\"/Users/\"]");
-    const priceEl = row.querySelector(".price-container .fw-bold");
+    const nameEl = row.querySelector("a[href*='/Users/']");
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    if (seen.has(name)) return;
+    seen.add(name);
+
+    // Prix : mobile-offer-container contient le prix réel (pas price-container)
+    let price = null;
+    const priceEl = row.querySelector(".mobile-offer-container .fw-bold")
+      || row.querySelector(".price-container .fw-bold")
+      || row.querySelector(".fw-bold");
+    if (priceEl) price = priceEl.textContent.trim();
+
+    // Ventes depuis le tooltip (non tronqué, ex: "134284 Sales | 1836 Available items")
     const sellCountEl = row.querySelector(".sell-count");
-    const evalEl = row.querySelector(".seller-rating-percentage, [class*=\"rating\"]");
-    if (nameEl && priceEl && !seen.has(nameEl.textContent.trim())) {
-      seen.add(nameEl.textContent.trim());
-      sellers.push({
-        name: nameEl.textContent.trim(),
-        href: nameEl.href,
-        price: priceEl.textContent.trim(),
-        sales: sellCountEl ? parseInt(sellCountEl.textContent.trim()) : 0,
-        eval: evalEl ? parseFloat(evalEl.textContent) : null
+    let sales = 0;
+    if (sellCountEl) {
+      const tip = sellCountEl.getAttribute("data-bs-original-title") || "";
+      const m = tip.match(/([\d.,]+)\s*Sales/i);
+      if (m) sales = parseInt(m[1].replace(/[.,]/g, ""));
+      else sales = parseInt(sellCountEl.textContent.trim().replace(/[.,K]/gi, "")) || 0;
+    }
+
+    // Langue depuis .product-attributes (icône à côté du badge NM/LP)
+    let lang = null;
+    const prodAttrs = row.querySelector(".product-attributes");
+    if (prodAttrs) {
+      const icons = prodAttrs.querySelectorAll("span[aria-label], span[data-bs-original-title]");
+      icons.forEach(el => {
+        const label = el.getAttribute("aria-label") || el.getAttribute("data-bs-original-title") || "";
+        if (label && !label.match(/Near Mint|Light|Played|Excellent|Good|Poor|Mint/i)) {
+          lang = label;
+        }
       });
     }
+
+    // Condition (MT, NM, EX, GD, LP, PL, PO)
+    let condition = null;
+    const condEl = row.querySelector(".article-condition .badge, .article-condition");
+    if (condEl) condition = condEl.textContent.trim();
+
+    sellers.push({ name, href: nameEl.getAttribute("href"), price, sales, lang, condition });
   });
-  sellers.sort((a, b) => b.sales - a.sales);
-  return JSON.stringify(sellers.slice(0, 10));
-})()'
+
+  // Filtrer : JP uniquement + condition NM ou MT uniquement, trier par ventes desc
+  const jp = sellers.filter(s =>
+    (s.lang === "Japanese" || s.lang === null) &&
+    (s.condition === "NM" || s.condition === "MT")
+  );
+  jp.sort((a, b) => b.sales - a.sales);
+  return JSON.stringify({ total: sellers.length, jpNmCount: jp.length, top20: jp.slice(0, 20) });
+})()
+JSEOF
 ```
 
-Résultat : top 10 vendeurs triés par nombre de ventes, avec `eval` (%) si disponible.
-Si `eval` est `null`, vérifier manuellement sur la page (badge/pourcentage à côté du nom).
+**IMPORTANT — Filtrage langue** :
+- Ne garder que les vendeurs dont `lang` est `"Japanese"` (ou `null` si pas d'icône = souvent JP sur page JP)
+- **Exclure** : `S-Chinese`, `T-Chinese`, `Korean`, `Thai`, `English`, etc.
+
+**IMPORTANT — Filtrage condition** :
+- Ne garder que les cartes en **Near Mint (NM)** ou **Mint (MT)**
+- **Exclure** : `EX` (Excellent), `GD` (Good), `LP` (Light Played), `PL` (Played), `PO` (Poor)
+- La condition est dans `.article-condition .badge` (texte: NM, MT, EX, GD, LP, PL, PO)
+
+**IMPORTANT — Sélecteur prix** :
+- Le prix est dans `.mobile-offer-container .fw-bold` (pas `.price-container .fw-bold`)
+- L'ancien sélecteur `.price-container` retournait `null` pour la plupart des vendeurs, filtrant les gros vendeurs
+
+Résultat : top 20 vendeurs JP en NM/MT triés par nombre de ventes.
+L'eval% n'est pas visible sur la page produit — seulement sur le profil vendeur. Pour les vendeurs avec >1000 ventes, on peut supposer eval ~98%+. Pour les cartes chères (>10€), vérifier le profil.
 
 ### Critères de sélection du vendeur — Wilson score
 
@@ -170,12 +221,14 @@ wilson(p, n) = (p + z²/2n - z * sqrt(p(1-p)/n + z²/4n²)) / (1 + z²/n)
 | 98%  | 500   | ~0.967      |
 
 **Règle de décision** :
-1. **Calculer le Wilson score** pour chaque vendeur avec eval > 90%
-2. **Éliminer** les vendeurs avec Wilson score < 0.90 (pas assez fiables)
-3. **Parmi les restants** : choisir le **prix le plus bas**
-4. **En cas de prix proches** (écart < ~3€) : préférer celui avec le meilleur Wilson score
+1. **Filtrer par condition** : ne garder que **Near Mint (NM)** ou **Mint (MT)** — exclure EX, GD, LP, PL, PO
+2. **Filtrer par langue** : ne garder que les listings en **japonais** (exclure S-Chinese, Korean, Thai, etc.)
+3. **Calculer le Wilson score** pour chaque vendeur avec eval > 90%
+4. **Éliminer** les vendeurs avec Wilson score < 0.90 (pas assez fiables)
+5. **Toujours prendre le meilleur Wilson score**, sauf si son prix dépasse de plus de 5€ le prix du vendeur fiable le moins cher
+6. En pratique : trier par Wilson score desc, prendre le premier dont le prix est à max 5€ du moins cher parmi les fiables
 
-La fiabilité prime sur le prix — on accepte de payer quelques euros de plus pour un vendeur de confiance.
+La fiabilité prime sur le prix — on accepte de payer jusqu'à 5€ de plus pour un vendeur de confiance.
 
 ### Étape 5 — Mettre à jour le CSV
 
@@ -194,6 +247,12 @@ Revenir à l'étape 1 avec la carte suivante. Respecter le rythme (5-8s entre le
 | SR, SEC, R, UC, C, L (Leader) | V1 ou sans suffixe |
 | SR Parallel, SEC Parallel, R Parallel, Leader Parallel | V2 |
 | SP R, SP UC, SP SR | Chercher dans les résultats (souvent set différent) |
+
+**IMPORTANT — Vérifier la rareté** :
+- Sur la page produit Cardmarket, le champ "Rarity" indique la vraie rareté
+- **AA** = Alternative Art = Parallel = **V2**
+- Ne pas se fier uniquement au CSV — croiser avec la page produit
+- En cas de doute, le prix est un bon indicateur : une AA est bien plus chère que la version standard
 
 ### Noms des sets (pour les URL)
 
