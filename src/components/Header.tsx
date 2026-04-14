@@ -8,9 +8,13 @@ interface Props {
   onImport: (file: File) => void;
   onExport: () => void;
   count: number;
+  filteredCount: number;
+  filtersActive: boolean;
+  showFilters: boolean;
+  onToggleFilters: () => void;
 }
 
-export default function Header({ view, onViewChange, onAdd, onImport, onExport, count }: Props) {
+export default function Header({ view, onViewChange, onAdd, onImport, onExport, count, filteredCount, filtersActive, showFilters, onToggleFilters }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,7 +29,7 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
     <header className="header">
       <div className="header-top">
         <h1>OP Wishlist</h1>
-        <span className="badge">{count}</span>
+        <span className="badge">{filtersActive ? `${filteredCount}/${count}` : count}</span>
       </div>
       <div className="header-actions">
         <div className="view-toggle">
@@ -44,6 +48,12 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
             ▦
           </button>
         </div>
+        <button className={`btn-filter ${showFilters ? 'active' : ''}`} onClick={onToggleFilters}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            {filtersActive && <span className="filter-dot" />}
+          </button>
         <div className="header-buttons">
           <button className="btn-add" onClick={onAdd}>+</button>
           <button className="btn-secondary" onClick={() => fileRef.current?.click()}>

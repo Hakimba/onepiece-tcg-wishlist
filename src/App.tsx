@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Card, ViewMode } from './types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Card, ViewMode, FilterState } from './types';
 import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } from './store';
 import { parseCSV, downloadCSV } from './csv';
+import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
 import Header from './components/Header';
+import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MosaicView from './components/MosaicView';
 import CardDetail from './components/CardDetail';
@@ -14,7 +16,13 @@ function App() {
   const [view, setView] = useState<ViewMode>('list');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [loading, setLoading] = useState(true);
+
+  const filtersActive = hasActiveFilters(filters);
+  const filteredCards = useMemo(() => applyFilters(cards, filters), [cards, filters]);
+  const allSeries = useMemo(() => [...new Set(cards.map((c) => c.serie))].sort(), [cards]);
 
   useEffect(() => {
     loadCards().then((c) => {
@@ -74,27 +82,27 @@ function App() {
       if (selectedIndex === null) return;
       const next =
         direction === 'right'
-          ? Math.min(selectedIndex + 1, cards.length - 1)
+          ? Math.min(selectedIndex + 1, filteredCards.length - 1)
           : Math.max(selectedIndex - 1, 0);
       setSelectedIndex(next);
     },
-    [selectedIndex, cards.length]
+    [selectedIndex, filteredCards.length]
   );
 
   if (loading) {
     return <div className="loading">Chargement...</div>;
   }
 
-  if (selectedIndex !== null && cards[selectedIndex]) {
+  if (selectedIndex !== null && filteredCards[selectedIndex]) {
     return (
       <CardDetail
-        card={cards[selectedIndex]}
+        card={filteredCards[selectedIndex]}
         onBack={() => setSelectedIndex(null)}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onSwipe={handleSwipe}
         hasPrev={selectedIndex > 0}
-        hasNext={selectedIndex < cards.length - 1}
+        hasNext={selectedIndex < filteredCards.length - 1}
       />
     );
   }
@@ -112,11 +120,18 @@ function App() {
         onImport={handleImport}
         onExport={handleExport}
         count={cards.length}
+        filteredCount={filteredCards.length}
+        filtersActive={filtersActive}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((s) => !s)}
       />
+      {showFilters && (
+        <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
+      )}
       {view === 'list' ? (
-        <ListView cards={cards} onSelect={handleSelect} />
+        <ListView cards={filteredCards} onSelect={handleSelect} />
       ) : (
-        <MosaicView cards={cards} onSelect={handleSelect} />
+        <MosaicView cards={filteredCards} onSelect={handleSelect} />
       )}
     </div>
   );

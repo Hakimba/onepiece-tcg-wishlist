@@ -227,6 +227,158 @@ body {
   white-space: nowrap;
 }
 
+/* ===================== Filter Button ===================== */
+.btn-filter {
+  background: var(--bg-surface);
+  border: none;
+  color: var(--text-dim);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-filter.active {
+  background: var(--accent);
+  color: white;
+}
+
+.filter-dot {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--gold);
+  border-radius: 50%;
+}
+
+.btn-filter.active .filter-dot {
+  background: var(--gold);
+}
+
+/* ===================== Filter Panel ===================== */
+.filter-panel {
+  padding: 0.75rem 1rem;
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filter-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.filter-pill {
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.filter-pill.selected {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(74, 108, 247, 0.15);
+}
+
+.tri-toggle {
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.15s;
+}
+
+.tri-toggle.on {
+  background: rgba(74, 108, 247, 0.1);
+}
+
+.tri-toggle.off {
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.filter-price-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-price-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  min-height: 40px;
+  max-width: 6rem;
+}
+
+.filter-price-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.filter-price-sep {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.filter-reset {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  text-decoration: underline;
+  align-self: flex-start;
+  min-height: 36px;
+}
+
 /* ===================== List View ===================== */
 .list-view {
   padding: 0 0.5rem;
