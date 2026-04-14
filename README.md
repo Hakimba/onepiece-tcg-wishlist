@@ -1,73 +1,39 @@
-# React + TypeScript + Vite
+# OP Wishlist
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Import/export CSV** — importer une wishlist, exporter pour backup ou partage
+- **Deux vues** — liste (tableau) ou mosaique (grille d'images 2 colonnes)
+- **Fiche carte** — detail avec image, rarete, prix, lien d'achat, navigation par swipe
+- **Ajout manuel** — formulaire avec selecteur de rarete visuel (base + modificateurs Parallel/SP)
+- **Marqueurs visuels** — icones indiquant si une carte a une image et/ou un lien d'achat
+- **Lien vendeur** — integration Cardmarket via la colonne `seller_url` du CSV
+- **Upload d'image** — photo par carte, stockee localement en IndexedDB
+- **PWA** — installable sur mobile, fonctionne hors-ligne
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Vite + React + TypeScript
+- IndexedDB (`idb-keyval`)
+- `vite-plugin-pwa`
+- GitHub Actions + GitHub Pages
 
-## Expanding the ESLint configuration
+## Dev
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Deploiement
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Push sur `master` → build + deploy auto sur GitHub Pages.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Format CSV
+
+```csv
+serie,idcard,character,rarity,price,seller_url
+OP01,OP01-013,Sanji,R Parallel,29.99€,https://www.cardmarket.com/en/OnePiece/Users/...
 ```
