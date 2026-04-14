@@ -12,9 +12,10 @@ interface Props {
   filtersActive: boolean;
   showFilters: boolean;
   onToggleFilters: () => void;
+  onMenuOpen: () => void;
 }
 
-export default function Header({ view, onViewChange, onAdd, onImport, onExport, count, filteredCount, filtersActive, showFilters, onToggleFilters }: Props) {
+export default function Header({ view, onViewChange, onAdd, onImport, onExport, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +29,13 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
   return (
     <header className="header">
       <div className="header-top">
+        <button className="btn-hamburger" onClick={onMenuOpen} title="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1>OP Wishlist</h1>
         <span className="badge">{filtersActive ? `${filteredCount}/${count}` : count}</span>
       </div>

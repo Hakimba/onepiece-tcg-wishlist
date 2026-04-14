@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Card, ViewMode, FilterState } from './types';
+import type { Card, ViewMode, FilterState, PageId } from './types';
 import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } from './store';
 import { parseCSV, downloadCSV } from './csv';
 import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
@@ -9,6 +9,10 @@ import ListView from './components/ListView';
 import MosaicView from './components/MosaicView';
 import CardDetail from './components/CardDetail';
 import AddCardForm from './components/AddCardForm';
+import SideDrawer from './components/SideDrawer';
+import SearchBar from './components/SearchBar';
+import CharactersPage from './components/CharactersPage';
+import BackToTop from './components/BackToTop';
 import './styles/app.css';
 
 function App() {
@@ -19,10 +23,24 @@ function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<PageId>('home');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filtersActive = hasActiveFilters(filters);
-  const filteredCards = useMemo(() => applyFilters(cards, filters), [cards, filters]);
+  const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '';
+  const filteredCards = useMemo(() => {
+    const byFilters = applyFilters(cards, filters);
+    if (!searchQuery.trim()) return byFilters;
+    const q = searchQuery.trim().toLowerCase();
+    return byFilters.filter((c) =>
+      c.character.toLowerCase().includes(q) || c.idcard.toLowerCase().includes(q)
+    );
+  }, [cards, filters, searchQuery]);
   const allSeries = useMemo(() => [...new Set(cards.map((c) => c.serie))].sort(), [cards]);
+  const allCharacters = useMemo(
+    () => [...new Set(cards.map((c) => c.character).filter(Boolean))].sort(),
+    [cards]
+  );
 
   useEffect(() => {
     loadCards().then((c) => {
@@ -77,6 +95,18 @@ function App() {
     setSelectedIndex(index);
   }, []);
 
+  const handleNavigate = useCallback((page: PageId) => {
+    setCurrentPage(page);
+    setDrawerOpen(false);
+    setSelectedIndex(null);
+    setShowAdd(false);
+  }, []);
+
+  const handleSelectCharacter = useCallback((name: string) => {
+    setSearchQuery(name);
+    setCurrentPage('home');
+  }, []);
+
   const handleSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (selectedIndex === null) return;
@@ -93,47 +123,87 @@ function App() {
     return <div className="loading">Chargement...</div>;
   }
 
+  const drawer = (
+    <SideDrawer
+      open={drawerOpen}
+      currentPage={currentPage}
+      onNavigate={handleNavigate}
+      onClose={() => setDrawerOpen(false)}
+    />
+  );
+
   if (selectedIndex !== null && filteredCards[selectedIndex]) {
     return (
-      <CardDetail
-        card={filteredCards[selectedIndex]}
-        onBack={() => setSelectedIndex(null)}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        onSwipe={handleSwipe}
-        hasPrev={selectedIndex > 0}
-        hasNext={selectedIndex < filteredCards.length - 1}
-      />
+      <>
+        {drawer}
+        <CardDetail
+          card={filteredCards[selectedIndex]}
+          onBack={() => setSelectedIndex(null)}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onSwipe={handleSwipe}
+          hasPrev={selectedIndex > 0}
+          hasNext={selectedIndex < filteredCards.length - 1}
+        />
+      </>
     );
   }
 
   if (showAdd) {
-    return <AddCardForm onAdd={handleAdd} onCancel={() => setShowAdd(false)} />;
+    return (
+      <>
+        {drawer}
+        <AddCardForm onAdd={handleAdd} onCancel={() => setShowAdd(false)} />
+      </>
+    );
+  }
+
+  if (currentPage === 'characters') {
+    return (
+      <>
+        {drawer}
+        <CharactersPage
+          cards={cards}
+          onSelectCharacter={handleSelectCharacter}
+          onBack={() => setCurrentPage('home')}
+        />
+      </>
+    );
   }
 
   return (
-    <div className="app">
-      <Header
-        view={view}
-        onViewChange={setView}
-        onAdd={() => setShowAdd(true)}
-        onImport={handleImport}
-        onExport={handleExport}
-        count={cards.length}
-        filteredCount={filteredCards.length}
-        filtersActive={filtersActive}
-        showFilters={showFilters}
-        onToggleFilters={() => setShowFilters((s) => !s)}
-      />
-      {showFilters && (
-        <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
-      )}
-      {view === 'list' ? (
-        <ListView cards={filteredCards} onSelect={handleSelect} />
-      ) : (
-        <MosaicView cards={filteredCards} onSelect={handleSelect} />
-      )}
-    </div>
+    <>
+      {drawer}
+      <div className="app">
+        <Header
+          view={view}
+          onViewChange={setView}
+          onAdd={() => setShowAdd(true)}
+          onImport={handleImport}
+          onExport={handleExport}
+          count={cards.length}
+          filteredCount={filteredCards.length}
+          filtersActive={filtersActive}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters((s) => !s)}
+          onMenuOpen={() => setDrawerOpen(true)}
+        />
+        <SearchBar
+          query={searchQuery}
+          onChange={setSearchQuery}
+          allCharacters={allCharacters}
+        />
+        {showFilters && (
+          <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
+        )}
+        {view === 'list' ? (
+          <ListView cards={filteredCards} onSelect={handleSelect} />
+        ) : (
+          <MosaicView cards={filteredCards} onSelect={handleSelect} />
+        )}
+        <BackToTop />
+      </div>
+    </>
   );
 }
 
