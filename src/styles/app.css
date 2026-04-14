@@ -234,7 +234,7 @@ body {
 
 .list-header {
   display: grid;
-  grid-template-columns: 5.5rem 1fr 7.5rem 3rem;
+  grid-template-columns: 2.2rem 5.5rem 1fr 7.5rem 3rem;
   gap: 0.3rem;
   padding: 0.5rem 0.5rem;
   color: var(--text-dim);
@@ -246,7 +246,7 @@ body {
 
 .list-row {
   display: grid;
-  grid-template-columns: 5.5rem 1fr 7.5rem 3rem;
+  grid-template-columns: 2.2rem 5.5rem 1fr 7.5rem 3rem;
   gap: 0.3rem;
   padding: 0.65rem 0.5rem;
   border-bottom: 1px solid var(--bg-surface);
@@ -287,6 +287,28 @@ body {
   color: var(--text-dim);
 }
 
+.col-markers {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.marker-icon {
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.marker-icon.active {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.marker-icon.inactive {
+  color: var(--text-dim);
+  opacity: 0.2;
+}
+
 /* ===================== Mosaic View ===================== */
 .mosaic-view {
   display: grid;
@@ -310,6 +332,7 @@ body {
 .mosaic-image-wrapper {
   aspect-ratio: 3/4;
   overflow: hidden;
+  position: relative;
 }
 
 .mosaic-image-wrapper a {
@@ -338,8 +361,27 @@ body {
 .mosaic-info {
   padding: 0.4rem 0.5rem 0.5rem;
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mosaic-info-left {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  min-width: 0;
+}
+
+.mosaic-buy-badge {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  flex-shrink: 0;
+  padding: 0.25rem;
 }
 
 .mosaic-id {

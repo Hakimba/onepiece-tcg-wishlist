@@ -27,12 +27,16 @@ function App() {
     const text = await file.text();
     const imported = parseCSV(text);
     const existing = await loadCards();
-    const existingIds = new Set(existing.map((c) => c.id));
+    const existingMap = new Map(existing.map((c) => [c.id, c]));
     const merged = [...existing];
     for (const card of imported) {
-      if (!existingIds.has(card.id)) {
+      const ex = existingMap.get(card.id);
+      if (ex) {
+        if (card.buyLink) ex.buyLink = card.buyLink;
+        if (card.price) ex.price = card.price;
+      } else {
         merged.push(card);
-        existingIds.add(card.id);
+        existingMap.set(card.id, card);
       }
     }
     await saveCards(merged);
