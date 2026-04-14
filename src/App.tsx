@@ -80,8 +80,8 @@ function App() {
     setShowAdd(false);
   }, []);
 
-  const handleUpdate = useCallback(async (card: Card) => {
-    const updated = await updateCard(card);
+  const handleUpdate = useCallback(async (card: Card, oldId?: string) => {
+    const updated = await updateCard(card, oldId);
     setCards(updated);
   }, []);
 

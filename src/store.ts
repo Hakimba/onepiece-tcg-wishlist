@@ -19,9 +19,9 @@ export async function addCard(card: Card): Promise<Card[]> {
   return cards;
 }
 
-export async function updateCard(updated: Card): Promise<Card[]> {
+export async function updateCard(updated: Card, oldId?: string): Promise<Card[]> {
   const cards = await loadCards();
-  const idx = cards.findIndex((c) => c.id === updated.id);
+  const idx = cards.findIndex((c) => c.id === (oldId ?? updated.id));
   if (idx !== -1) {
     cards[idx] = updated;
     await saveCards(cards);

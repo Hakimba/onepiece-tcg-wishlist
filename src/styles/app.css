@@ -650,6 +650,70 @@ body {
   font-size: 0.9rem;
 }
 
+/* ===================== Card Detail Edit Mode ===================== */
+.detail-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bg-surface);
+}
+
+.detail-edit-field:last-of-type {
+  border-bottom: none;
+}
+
+.detail-edit-field input[type="text"] {
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 0.6rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  min-height: 44px;
+}
+
+.detail-edit-field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.detail-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.btn-edit {
+  width: 100%;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: none;
+  padding: 0.6rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  transition: background 0.15s;
+}
+
+.btn-edit:active {
+  background: #2d2d50;
+}
+
+.btn-save {
+  flex: 1;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.6rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 44px;
+}
+
 .detail-link-section {
   background: var(--bg-card);
   border-radius: var(--radius);

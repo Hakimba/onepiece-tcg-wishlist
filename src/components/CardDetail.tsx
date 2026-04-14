@@ -1,16 +1,21 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Card } from '../types';
+import type { BaseRarity } from '../rarity';
+import { parseRarity, buildRarityString, RARITY_COLORS } from '../rarity';
+import { makeCardId } from '../store';
 import RarityBadge from './RarityBadge';
 
 interface Props {
   card: Card;
   onBack: () => void;
-  onUpdate: (card: Card) => void;
+  onUpdate: (card: Card, oldId?: string) => void;
   onDelete: (id: string) => void;
   onSwipe: (direction: 'left' | 'right') => void;
   hasPrev: boolean;
   hasNext: boolean;
 }
+
+const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
 
 export default function CardDetail({
   card,
@@ -23,6 +28,18 @@ export default function CardDetail({
 }: Props) {
   const [buyLink, setBuyLink] = useState(card.buyLink ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  // Edit fields
+  const [editSerie, setEditSerie] = useState(card.serie);
+  const [editIdcard, setEditIdcard] = useState(card.idcard);
+  const [editCharacter, setEditCharacter] = useState(card.character);
+  const [editPrice, setEditPrice] = useState(card.price);
+  const parsed = parseRarity(card.rarity);
+  const [editBase, setEditBase] = useState<BaseRarity>(parsed.base);
+  const [editParallel, setEditParallel] = useState(parsed.isParallel);
+  const [editSP, setEditSP] = useState(parsed.isSP);
+
   const touchStart = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +47,15 @@ export default function CardDetail({
   useEffect(() => {
     setBuyLink(card.buyLink ?? '');
     setConfirmDelete(false);
+    setEditing(false);
+    setEditSerie(card.serie);
+    setEditIdcard(card.idcard);
+    setEditCharacter(card.character);
+    setEditPrice(card.price);
+    const p = parseRarity(card.rarity);
+    setEditBase(p.base);
+    setEditParallel(p.isParallel);
+    setEditSP(p.isSP);
   }, [card.id]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +70,38 @@ export default function CardDetail({
 
   const handleLinkSave = () => {
     onUpdate({ ...card, buyLink: buyLink.trim() || undefined });
+  };
+
+  const handleEditSave = () => {
+    const newRarity = buildRarityString(editBase, editParallel, editSP);
+    const newIdcard = editIdcard.trim().toUpperCase();
+    const newId = makeCardId(newIdcard, newRarity);
+    const oldId = card.id !== newId ? card.id : undefined;
+    onUpdate(
+      {
+        ...card,
+        serie: editSerie.trim(),
+        idcard: newIdcard,
+        character: editCharacter.trim(),
+        rarity: newRarity,
+        price: editPrice.trim(),
+        id: newId,
+      },
+      oldId
+    );
+    setEditing(false);
+  };
+
+  const handleEditCancel = () => {
+    setEditSerie(card.serie);
+    setEditIdcard(card.idcard);
+    setEditCharacter(card.character);
+    setEditPrice(card.price);
+    const p = parseRarity(card.rarity);
+    setEditBase(p.base);
+    setEditParallel(p.isParallel);
+    setEditSP(p.isSP);
+    setEditing(false);
   };
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -97,28 +155,112 @@ export default function CardDetail({
       </div>
 
       <div className="detail-info">
-        <div className="detail-row">
-          <span className="detail-label">Série</span>
-          <span className="detail-value">{card.serie}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">ID</span>
-          <span className="detail-value">{card.idcard}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Personnage</span>
-          <span className="detail-value">{card.character}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Rareté</span>
-          <span className="detail-value">
-            <RarityBadge rarity={card.rarity} size="md" />
-          </span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Prix</span>
-          <span className="detail-value">{card.price || '—'}</span>
-        </div>
+        {editing ? (
+          <>
+            <div className="detail-edit-field">
+              <label className="detail-label">Série</label>
+              <input
+                type="text"
+                value={editSerie}
+                onChange={(e) => setEditSerie(e.target.value)}
+                placeholder="OP01"
+              />
+            </div>
+            <div className="detail-edit-field">
+              <label className="detail-label">ID Carte</label>
+              <input
+                type="text"
+                value={editIdcard}
+                onChange={(e) => setEditIdcard(e.target.value)}
+                placeholder="OP01-025"
+              />
+            </div>
+            <div className="detail-edit-field">
+              <label className="detail-label">Personnage</label>
+              <input
+                type="text"
+                value={editCharacter}
+                onChange={(e) => setEditCharacter(e.target.value)}
+                placeholder="Roronoa Zoro"
+              />
+            </div>
+            <div className="detail-edit-field">
+              <label className="detail-label">Rareté</label>
+              <div className="rarity-picker">
+                {RARITIES.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`rarity-pill${editBase === r ? ' selected' : ''}`}
+                    style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
+                    onClick={() => setEditBase(r)}
+                  >
+                    {r === 'L' ? 'Leader' : r}
+                  </button>
+                ))}
+              </div>
+              <div className="rarity-toggles">
+                <label className="rarity-toggle">
+                  <input
+                    type="checkbox"
+                    checked={editParallel}
+                    onChange={(e) => setEditParallel(e.target.checked)}
+                  />
+                  <span className="toggle-label toggle-alt">Parallel / Alt</span>
+                </label>
+                <label className="rarity-toggle">
+                  <input
+                    type="checkbox"
+                    checked={editSP}
+                    onChange={(e) => setEditSP(e.target.checked)}
+                  />
+                  <span className="toggle-label toggle-sp">SP</span>
+                </label>
+              </div>
+            </div>
+            <div className="detail-edit-field">
+              <label className="detail-label">Prix</label>
+              <input
+                type="text"
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                placeholder="10-15"
+              />
+            </div>
+            <div className="detail-edit-actions">
+              <button className="btn-save" onClick={handleEditSave}>Sauvegarder</button>
+              <button className="btn-secondary" onClick={handleEditCancel}>Annuler</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="detail-row">
+              <span className="detail-label">Série</span>
+              <span className="detail-value">{card.serie}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">ID</span>
+              <span className="detail-value">{card.idcard}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Personnage</span>
+              <span className="detail-value">{card.character}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Rareté</span>
+              <span className="detail-value">
+                <RarityBadge rarity={card.rarity} size="md" />
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Prix</span>
+              <span className="detail-value">{card.price || '—'}</span>
+            </div>
+            <button className="btn-edit" onClick={() => setEditing(true)}>
+              Éditer
+            </button>
+          </>
+        )}
       </div>
 
       <div className="detail-link-section">
