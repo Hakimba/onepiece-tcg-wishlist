@@ -820,3 +820,256 @@ body {
 .toggle-sp {
   color: var(--green);
 }
+
+/* ===================== Hamburger Button ===================== */
+.btn-hamburger {
+  background: none;
+  border: none;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0.25rem;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ===================== Side Drawer ===================== */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.drawer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 80vw;
+  background: var(--bg-card);
+  z-index: 21;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawer-backdrop.open .drawer-panel {
+  transform: translateX(0);
+}
+
+.drawer-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.drawer-item:active {
+  background: var(--bg-surface);
+}
+
+.drawer-item.active {
+  background: rgba(74, 108, 247, 0.15);
+  color: var(--accent);
+}
+
+/* ===================== Search Bar ===================== */
+.search-bar {
+  padding: 0.5rem 1rem;
+  position: relative;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  padding: 0 0.75rem;
+  min-height: 44px;
+}
+
+.search-icon {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.search-input-wrapper input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0.6rem 0;
+  min-height: 44px;
+  outline: none;
+  font-family: inherit;
+}
+
+.search-input-wrapper input::placeholder {
+  color: var(--text-dim);
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 1rem;
+  right: 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 15;
+  list-style: none;
+  overflow-y: auto;
+  max-height: 220px;
+}
+
+.search-suggestions li {
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--bg-surface);
+  transition: background 0.1s;
+}
+
+.search-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.search-suggestions li:active {
+  background: var(--bg-surface);
+}
+
+/* ===================== Characters Page ===================== */
+.characters-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  min-height: 100dvh;
+}
+
+.characters-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.characters-header h2 {
+  font-size: 1.1rem;
+}
+
+.characters-list {
+  list-style: none;
+}
+
+.character-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  min-height: 44px;
+  border-bottom: 1px solid var(--bg-surface);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.character-row:active {
+  background: var(--bg-surface);
+}
+
+.character-name {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.character-count {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--bg-surface);
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ===================== Back to Top ===================== */
+.btn-back-to-top {
+  position: fixed;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  right: 1rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.btn-back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}

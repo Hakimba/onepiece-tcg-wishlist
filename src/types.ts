@@ -11,6 +11,8 @@ export interface Card {
 
 export type ViewMode = 'list' | 'mosaic';
 
+export type PageId = 'home' | 'characters';
+
 export interface FilterState {
   series: string[];
   rarityBases: string[];
