@@ -11,11 +11,13 @@ export function parseCSV(text: string): Card[] {
   const characterIdx = header.indexOf('character');
   const rarityIdx = header.indexOf('rarity');
   const priceIdx = header.indexOf('price');
+  const sellerUrlIdx = header.indexOf('seller_url');
 
   return lines.slice(1).map((line) => {
     const cols = line.split(',').map((c) => c.trim());
     const idcard = cols[idcardIdx] ?? '';
     const rarity = cols[rarityIdx] ?? '';
+    const sellerUrl = sellerUrlIdx >= 0 ? cols[sellerUrlIdx] ?? '' : '';
     return {
       id: makeCardId(idcard, rarity),
       serie: cols[serieIdx] ?? '',
@@ -23,14 +25,15 @@ export function parseCSV(text: string): Card[] {
       character: cols[characterIdx] ?? '',
       rarity,
       price: cols[priceIdx] ?? '',
+      ...(sellerUrl ? { buyLink: sellerUrl } : {}),
     };
   });
 }
 
 export function exportCSV(cards: Card[]): string {
-  const header = 'serie,idcard,character,rarity,price';
+  const header = 'serie,idcard,character,rarity,price,seller_url';
   const rows = cards.map(
-    (c) => `${c.serie},${c.idcard},${c.character},${c.rarity},${c.price}`
+    (c) => `${c.serie},${c.idcard},${c.character},${c.rarity},${c.price},${c.buyLink ?? ''}`
   );
   return [header, ...rows].join('\n') + '\n';
 }
