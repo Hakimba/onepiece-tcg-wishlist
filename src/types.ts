@@ -11,7 +11,7 @@ export interface Card {
 
 export type ViewMode = 'list' | 'mosaic';
 
-export type PageId = 'home' | 'characters';
+export type PageId = 'home' | 'characters' | 'bulk-assign';
 
 export interface FilterState {
   series: string[];
