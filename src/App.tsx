@@ -13,6 +13,7 @@ import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
+import BulkAssign from './components/BulkAssign';
 import './styles/app.css';
 
 function App() {
@@ -165,6 +166,19 @@ function App() {
         <CharactersPage
           cards={cards}
           onSelectCharacter={handleSelectCharacter}
+          onBack={() => setCurrentPage('home')}
+        />
+      </>
+    );
+  }
+
+  if (currentPage === 'bulk-assign') {
+    return (
+      <>
+        {drawer}
+        <BulkAssign
+          cards={cards}
+          onUpdate={handleUpdate}
           onBack={() => setCurrentPage('home')}
         />
       </>
