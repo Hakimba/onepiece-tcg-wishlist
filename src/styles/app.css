@@ -503,6 +503,8 @@ body {
 .col-id {
   font-family: 'SF Mono', ui-monospace, monospace;
   font-size: 0.75rem;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .col-id.link {
@@ -511,6 +513,17 @@ body {
 }
 
 .col-char {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.col-edition {
+  font-size: 0.6rem;
+  color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -655,6 +668,8 @@ body {
   font-family: 'SF Mono', ui-monospace, monospace;
   font-size: 0.68rem;
   color: var(--text-dim);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .mosaic-char {
@@ -674,6 +689,23 @@ body {
   margin-top: 0.2rem;
   display: inline-block;
   align-self: flex-start;
+}
+
+.mosaic-edition-bar {
+  padding: 0 0.5rem 0.4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.mosaic-edition {
+  font-size: 0.55rem;
+  color: var(--teal);
+  background: rgba(20, 184, 166, 0.12);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1.3;
+  text-align: center;
+  max-width: 100%;
 }
 
 /* ===================== Card Detail ===================== */
@@ -794,6 +826,11 @@ body {
 
 .detail-value {
   font-size: 0.9rem;
+}
+
+.detail-edition {
+  font-size: 0.8rem;
+  color: var(--text-dim);
 }
 
 /* ===================== Card Detail Edit Mode ===================== */
@@ -1366,4 +1403,319 @@ body {
   max-height: 100%;
   object-fit: contain;
   border-radius: var(--radius);
+}
+
+/* ===================== Disambiguation ===================== */
+.disambiguation-screen {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.disambiguation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.disambiguation-header h2 {
+  font-size: 1.1rem;
+}
+
+.disambiguation-hint {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.disambiguation-card-name {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.disambiguation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.disambiguation-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  cursor: pointer;
+  min-height: 52px;
+  transition: background 0.15s, border-color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.disambiguation-entry:active {
+  background: var(--bg-surface);
+}
+
+.disambiguation-entry.resolved {
+  border-color: var(--green);
+}
+
+.disambiguation-entry-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.disambiguation-entry-id {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.disambiguation-entry-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.disambiguation-entry-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.disambiguation-entry-count {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  background: var(--bg-surface);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.disambiguation-check {
+  color: var(--green);
+}
+
+.variant-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .variant-picker {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.variant-card {
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.variant-card:active {
+  transform: scale(0.97);
+}
+
+.variant-card.selected {
+  border-color: var(--accent);
+}
+
+.variant-image {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  display: block;
+}
+
+.variant-meta {
+  padding: 0.4rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.variant-edition {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.variant-image-tap {
+  cursor: zoom-in;
+}
+
+.variant-select-btn {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.variant-select-btn:active {
+  transform: scale(0.97);
+}
+
+.variant-select-btn.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 600;
+}
+
+/* --- Variant carousel overlay --- */
+
+.variant-carousel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  animation: zoom-fade-in 0.2s ease;
+}
+
+.variant-carousel-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem;
+}
+
+.variant-carousel-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  min-height: 0;
+}
+
+.variant-carousel-arrow {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  font-size: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.variant-carousel-arrow:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .variant-carousel-arrow {
+    display: none;
+  }
+}
+
+.variant-carousel-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 400px;
+  width: 100%;
+}
+
+.variant-carousel-image {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+.variant-carousel-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.variant-carousel-edition {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.variant-carousel-select {
+  padding: 0.6rem 1.5rem;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.variant-carousel-select:active {
+  transform: scale(0.97);
+}
+
+.variant-carousel-select.selected {
+  background: var(--accent);
+  color: #000;
+}
+
+.variant-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0 calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.variant-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.variant-carousel-dot.active {
+  background: var(--accent);
 }

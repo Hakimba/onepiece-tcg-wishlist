@@ -140,7 +140,7 @@ export default function CardDetail({
     [onSwipe]
   );
 
-  const imageUrl = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex);
+  const imageUrl = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex, card.imageSuffix);
 
   return (
     <div
@@ -294,9 +294,15 @@ export default function CardDetail({
                 <RarityBadge rarity={card.rarity} size="md" />
               </span>
             </div>
+            {card.edition && (
+              <div className="detail-row">
+                <span className="detail-label">Édition</span>
+                <span className="detail-value detail-edition">{card.edition}</span>
+              </div>
+            )}
             <div className="detail-row">
               <span className="detail-label">Prix</span>
-              <span className="detail-value">{card.price || '—'}</span>
+              <span className="detail-value">{card.price ? (card.price.includes('€') ? card.price : `${card.price}€`) : '—'}</span>
             </div>
             <button className="btn-edit" onClick={() => setEditing(true)}>
               Éditer
