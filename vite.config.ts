@@ -20,6 +20,21 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
         ],
       },
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/static\.dotgg\.gg\/onepiece\/card\/.+\.webp$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'card-images',
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+            },
+          },
+        ],
+      },
     }),
   ],
 })

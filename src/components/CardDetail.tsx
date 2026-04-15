@@ -4,6 +4,7 @@ import type { BaseRarity } from '../rarity';
 import { parseRarity, buildRarityString, RARITY_COLORS } from '../rarity';
 import { makeCardId } from '../store';
 import RarityBadge from './RarityBadge';
+import CardImage from './CardImage';
 
 interface Props {
   card: Card;
@@ -13,6 +14,7 @@ interface Props {
   onSwipe: (direction: 'left' | 'right') => void;
   hasPrev: boolean;
   hasNext: boolean;
+  spIndex?: Map<string, string>;
 }
 
 const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
@@ -25,6 +27,7 @@ export default function CardDetail({
   onSwipe,
   hasPrev,
   hasNext,
+  spIndex,
 }: Props) {
   const [buyLink, setBuyLink] = useState(card.buyLink ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -137,14 +140,20 @@ export default function CardDetail({
       </div>
 
       <div className="detail-image-section">
-        {card.image ? (
-          <img src={card.image} alt={card.character} className="detail-image" />
-        ) : (
-          <div className="detail-placeholder">Pas d'image</div>
-        )}
-        <button className="btn-upload" onClick={() => fileRef.current?.click()}>
-          {card.image ? 'Changer l\'image' : 'Ajouter une image'}
-        </button>
+        <CardImage card={card} spIndex={spIndex} className="detail-image" />
+        <div className="detail-image-actions">
+          <button className="btn-upload" onClick={() => fileRef.current?.click()}>
+            Remplacer l'image
+          </button>
+          {card.image && (
+            <button
+              className="btn-secondary"
+              onClick={() => onUpdate({ ...card, image: undefined })}
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
         <input
           ref={fileRef}
           type="file"

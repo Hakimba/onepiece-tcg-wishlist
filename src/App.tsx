@@ -3,6 +3,7 @@ import type { Card, ViewMode, FilterState, PageId } from './types';
 import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } from './store';
 import { parseCSV, downloadCSV } from './csv';
 import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
+import { loadSpIndex } from './imageResolver';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
@@ -13,7 +14,6 @@ import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
-import BulkAssign from './components/BulkAssign';
 import './styles/app.css';
 
 function App() {
@@ -27,6 +27,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [spIndex, setSpIndex] = useState<Map<string, string>>();
 
   const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '';
   const filteredCards = useMemo(() => {
@@ -44,8 +45,9 @@ function App() {
   );
 
   useEffect(() => {
-    loadCards().then((c) => {
+    Promise.all([loadCards(), loadSpIndex()]).then(([c, sp]) => {
       setCards(c);
+      setSpIndex(sp);
       setLoading(false);
     });
   }, []);
@@ -53,21 +55,8 @@ function App() {
   const handleImport = useCallback(async (file: File) => {
     const text = await file.text();
     const imported = parseCSV(text);
-    const existing = await loadCards();
-    const existingMap = new Map(existing.map((c) => [c.id, c]));
-    const merged = [...existing];
-    for (const card of imported) {
-      const ex = existingMap.get(card.id);
-      if (ex) {
-        if (card.buyLink) ex.buyLink = card.buyLink;
-        if (card.price) ex.price = card.price;
-      } else {
-        merged.push(card);
-        existingMap.set(card.id, card);
-      }
-    }
-    await saveCards(merged);
-    setCards(merged);
+    await saveCards(imported);
+    setCards(imported);
   }, []);
 
   const handleExport = useCallback(() => {
@@ -94,6 +83,12 @@ function App() {
 
   const handleSelect = useCallback((index: number) => {
     setSelectedIndex(index);
+  }, []);
+
+  const handleClear = useCallback(async () => {
+    await saveCards([]);
+    setCards([]);
+    setDrawerOpen(false);
   }, []);
 
   const handleNavigate = useCallback((page: PageId) => {
@@ -130,6 +125,7 @@ function App() {
       currentPage={currentPage}
       onNavigate={handleNavigate}
       onClose={() => setDrawerOpen(false)}
+      onClear={handleClear}
     />
   );
 
@@ -145,6 +141,7 @@ function App() {
           onSwipe={handleSwipe}
           hasPrev={selectedIndex > 0}
           hasNext={selectedIndex < filteredCards.length - 1}
+          spIndex={spIndex}
         />
       </>
     );
@@ -166,19 +163,6 @@ function App() {
         <CharactersPage
           cards={cards}
           onSelectCharacter={handleSelectCharacter}
-          onBack={() => setCurrentPage('home')}
-        />
-      </>
-    );
-  }
-
-  if (currentPage === 'bulk-assign') {
-    return (
-      <>
-        {drawer}
-        <BulkAssign
-          cards={cards}
-          onUpdate={handleUpdate}
           onBack={() => setCurrentPage('home')}
         />
       </>
@@ -211,9 +195,9 @@ function App() {
           <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
         )}
         {view === 'list' ? (
-          <ListView cards={filteredCards} onSelect={handleSelect} />
+          <ListView cards={filteredCards} onSelect={handleSelect} spIndex={spIndex} />
         ) : (
-          <MosaicView cards={filteredCards} onSelect={handleSelect} />
+          <MosaicView cards={filteredCards} onSelect={handleSelect} spIndex={spIndex} />
         )}
         <BackToTop />
       </div>
