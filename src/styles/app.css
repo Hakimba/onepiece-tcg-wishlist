@@ -37,6 +37,21 @@ body {
   padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
 }
 
+@media (min-width: 768px) {
+  .app {
+    max-width: 1400px;
+  }
+
+  .header,
+  .search-bar,
+  .filter-panel,
+  .list-view {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
 .loading {
   display: flex;
   justify-content: center;
@@ -111,6 +126,27 @@ body {
 .header-buttons {
   display: flex;
   gap: 0.4rem;
+}
+
+.btn-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+}
+
+.header-confirm-clear {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.btn-small {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  min-height: 44px;
 }
 
 .btn-add {
@@ -464,7 +500,7 @@ body {
 /* ===================== Mosaic View ===================== */
 .mosaic-view {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 0.5rem;
   padding: 0.5rem;
 }
@@ -1174,4 +1210,50 @@ body {
   gap: 0.5rem;
   justify-content: center;
   margin-top: 0.5rem;
+}
+
+/* ===================== Image Zoom Overlay ===================== */
+.detail-image-tap {
+  cursor: zoom-in;
+}
+
+.image-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: zoom-fade-in 0.2s ease;
+}
+
+@keyframes zoom-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.zoom-close {
+  position: absolute;
+  top: calc(1rem + env(safe-area-inset-top, 0px));
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 51;
+}
+
+.zoom-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius);
 }

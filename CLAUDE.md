@@ -10,25 +10,44 @@ App de gestion de wishlist de cartes One Piece TCG à l'unité. L'utilisateur ch
 - Déploiement auto via GitHub Actions sur push master → GitHub Pages
 
 ## URL de prod
-https://hakimba.github.io/onepiece-wishlist/
+https://hakimba.github.io/onepiece-tcg-wishlist/
 
 ## Structure
 ```
 src/
 ├── App.tsx              — routing entre vues, state global
-├── types.ts             — Card, ViewMode
+├── types.ts             — Card, ViewMode, PageId, FilterState
 ├── store.ts             — CRUD IndexedDB
 ├── csv.ts               — import/export CSV
 ├── rarity.ts            — parseRarity(), buildRarityString(), couleurs
+├── filters.ts           — applyFilters(), defaultFilters, hasActiveFilters
+├── imageResolver.ts     — resolveImageUrl(), loadSpIndex() (CDN dotgg)
 ├── components/
-│   ├── Header.tsx       — toggle liste/mosaïque, +, import, export
-│   ├── ListView.tsx     — vue tableau
-│   ├── MosaicView.tsx   — grille 2 colonnes images
-│   ├── CardDetail.tsx   — détail carte, swipe, upload image, lien achat
+│   ├── Header.tsx       — toggle liste/mosaïque, +, import, export, hamburger
+│   ├── ListView.tsx     — vue tableau avec marqueurs image/achat
+│   ├── MosaicView.tsx   — grille 2 colonnes avec images CDN
+│   ├── CardDetail.tsx   — détail carte, swipe, édition, upload image, lien achat
+│   ├── CardImage.tsx    — composant image : CDN auto, override manuel, fallback
 │   ├── AddCardForm.tsx  — formulaire ajout avec sélecteur rareté visuel
+│   ├── FilterPanel.tsx  — panneau filtres composables
+│   ├── SearchBar.tsx    — barre de recherche avec autocomplétion
+│   ├── CharactersPage.tsx — répertoire personnages
+│   ├── SideDrawer.tsx   — navigation latérale + bouton "Tout vider"
+│   ├── BackToTop.tsx    — bouton retour en haut
 │   └── RarityBadge.tsx  — badges colorés par rareté
-└── styles/app.css       — design flat sombre, optimisé iPhone
+├── styles/app.css       — design flat sombre, optimisé iPhone
+public/
+└── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
 ```
+
+## Système d'images
+Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
+- URL pattern : `https://static.dotgg.gg/onepiece/card/{idcard}{suffix}.webp`
+- Standard → pas de suffixe, Parallel → `_p1`, SP → lookup dans `public/sp-index.json`
+- Le fichier `sp-index.json` est généré à partir de l'API `api.dotgg.gg` (fetch cross-origin bloqué par CORS, donc pré-généré côté serveur)
+- Le service worker cache les images en CacheFirst (30 jours)
+- Override manuel possible via "Remplacer l'image" dans CardDetail (stocké en base64 dans IndexedDB)
+- Pour régénérer l'index SP : `curl -s "https://api.dotgg.gg/cgfw/getcards?game=onepiece" | python3 -c "import json,sys; d=json.load(sys.stdin); idx={c['id_normal']:c['id'][len(c['id_normal']):] for c in d if c.get('rarity')=='SP CARD' and c['id']!=c['id_normal']}; json.dump(idx,open('public/sp-index.json','w'),indent=2)"`
 
 ## Système de raretés
 La rareté d'une carte = **rareté de base** + **modificateurs optionnels** :
@@ -38,7 +57,7 @@ La rareté d'une carte = **rareté de base** + **modificateurs optionnels** :
 - Parsé à l'affichage par `parseRarity()` dans `rarity.ts`
 
 ## CSV source
-Le fichier `~/onepiece-tcg-wishlist.csv` (hors repo) contient la wishlist maintenue manuellement. L'app peut l'importer via le bouton Import.
+Le fichier `~/onepiece-tcg-wishlist-v3.csv` (hors repo) contient la wishlist maintenue manuellement. L'app peut l'importer via le bouton Import (remplace toutes les entrées).
 Champs : `serie,idcard,character,rarity,price,seller_url`
 
 ## Conventions

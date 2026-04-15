@@ -88,7 +88,6 @@ function App() {
   const handleClear = useCallback(async () => {
     await saveCards([]);
     setCards([]);
-    setDrawerOpen(false);
   }, []);
 
   const handleNavigate = useCallback((page: PageId) => {
@@ -125,7 +124,6 @@ function App() {
       currentPage={currentPage}
       onNavigate={handleNavigate}
       onClose={() => setDrawerOpen(false)}
-      onClear={handleClear}
     />
   );
 
@@ -179,6 +177,7 @@ function App() {
           onAdd={() => setShowAdd(true)}
           onImport={handleImport}
           onExport={handleExport}
+          onClear={handleClear}
           count={cards.length}
           filteredCount={filteredCards.length}
           filtersActive={filtersActive}

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { PageId } from '../types';
 
 interface Props {
@@ -6,7 +6,6 @@ interface Props {
   currentPage: PageId;
   onNavigate: (page: PageId) => void;
   onClose: () => void;
-  onClear: () => void;
 }
 
 const PAGES: { id: PageId; label: string; icon: ReactNode }[] = [
@@ -34,12 +33,9 @@ const PAGES: { id: PageId; label: string; icon: ReactNode }[] = [
   },
 ];
 
-export default function SideDrawer({ open, currentPage, onNavigate, onClose, onClear }: Props) {
-  const [confirmClear, setConfirmClear] = useState(false);
-
+export default function SideDrawer({ open, currentPage, onNavigate, onClose }: Props) {
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
-    if (!open) setConfirmClear(false);
     return () => {
       document.body.style.overflow = '';
     };
@@ -59,22 +55,6 @@ export default function SideDrawer({ open, currentPage, onNavigate, onClose, onC
             {page.label}
           </button>
         ))}
-        <div className="drawer-spacer" />
-        {confirmClear ? (
-          <div className="drawer-confirm">
-            <span>Tout supprimer ?</span>
-            <button className="btn-danger" onClick={onClear}>Oui</button>
-            <button className="btn-secondary" onClick={() => setConfirmClear(false)}>Non</button>
-          </div>
-        ) : (
-          <button className="drawer-item drawer-clear" onClick={() => setConfirmClear(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-            Tout vider
-          </button>
-        )}
       </nav>
     </div>
   );
