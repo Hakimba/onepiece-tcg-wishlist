@@ -4,6 +4,7 @@ import RarityBadge from './RarityBadge';
 interface Props {
   cards: Card[];
   onSelect: (index: number) => void;
+  spIndex?: Map<string, string>;
 }
 
 export default function ListView({ cards, onSelect }: Props) {
@@ -23,7 +24,7 @@ export default function ListView({ cards, onSelect }: Props) {
       {cards.map((card, i) => (
         <div key={card.id} className="list-row" onClick={() => onSelect(i)}>
           <span className="col-markers">
-            <svg className={`marker-icon ${card.image ? 'active' : 'inactive'}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="marker-icon active" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />
               <path d="M21 15l-5-5L5 21" />

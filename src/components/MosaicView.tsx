@@ -1,12 +1,14 @@
 import type { Card } from '../types';
 import RarityBadge from './RarityBadge';
+import CardImage from './CardImage';
 
 interface Props {
   cards: Card[];
   onSelect: (index: number) => void;
+  spIndex?: Map<string, string>;
 }
 
-export default function MosaicView({ cards, onSelect }: Props) {
+export default function MosaicView({ cards, onSelect, spIndex }: Props) {
   if (cards.length === 0) {
     return <div className="empty">Aucune carte. Importe un CSV ou ajoute une carte.</div>;
   }
@@ -16,13 +18,7 @@ export default function MosaicView({ cards, onSelect }: Props) {
       {cards.map((card, i) => (
         <div key={card.id} className="mosaic-card" onClick={() => onSelect(i)}>
           <div className="mosaic-image-wrapper">
-            {card.image ? (
-              <img src={card.image} alt={card.character} className="mosaic-image" />
-            ) : (
-              <div className="mosaic-placeholder">
-                <span>{card.idcard}</span>
-              </div>
-            )}
+            <CardImage card={card} spIndex={spIndex} className="mosaic-image" />
           </div>
           <div className="mosaic-info">
             <div className="mosaic-info-left">
