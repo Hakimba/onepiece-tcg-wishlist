@@ -12,7 +12,7 @@ interface Props {
 export default function CardImage({ card, spIndex, className, alt }: Props) {
   const [error, setError] = useState(false);
 
-  const src = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex);
+  const src = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex, card.imageSuffix);
   const label = alt ?? `${card.idcard} ${card.character}`;
 
   if (!src || (error && !card.image)) {

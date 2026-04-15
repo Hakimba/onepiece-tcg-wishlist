@@ -8,6 +8,8 @@ export interface Card {
   image?: string;
   buyLink?: string;
   favorite?: boolean;
+  edition?: string;
+  imageSuffix?: string;
 }
 
 export type ViewMode = 'list' | 'mosaic';

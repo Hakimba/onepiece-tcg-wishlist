@@ -8,6 +8,11 @@ interface Props {
   spIndex?: Map<string, string>;
 }
 
+function formatPrice(p: string): string {
+  if (!p) return '—';
+  return p.includes('€') ? p : `${p}€`;
+}
+
 export default function ListView({ cards, onSelect, onToggleFavorite }: Props) {
   if (cards.length === 0) {
     return <div className="empty">Aucune carte. Importe un CSV ou ajoute une carte.</div>;
@@ -55,11 +60,14 @@ export default function ListView({ cards, onSelect, onToggleFavorite }: Props) {
             )}
           </span>
           <span className="col-id">{card.idcard}</span>
-          <span className="col-char">{card.character}</span>
+          <span className="col-char">
+            {card.character}
+            {card.edition && <span className="col-edition">{card.edition}</span>}
+          </span>
           <span className="col-rarity">
             <RarityBadge rarity={card.rarity} size="sm" />
           </span>
-          <span className="col-price">{card.price || '—'}</span>
+          <span className="col-price">{formatPrice(card.price)}</span>
         </div>
       ))}
     </div>

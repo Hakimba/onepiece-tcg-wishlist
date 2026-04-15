@@ -9,6 +9,10 @@ interface Props {
   spIndex?: Map<string, string>;
 }
 
+function formatPrice(p: string): string {
+  return p.includes('€') ? p : `${p}€`;
+}
+
 export default function MosaicView({ cards, onSelect, onToggleFavorite, spIndex }: Props) {
   if (cards.length === 0) {
     return <div className="empty">Aucune carte. Importe un CSV ou ajoute une carte.</div>;
@@ -26,7 +30,7 @@ export default function MosaicView({ cards, onSelect, onToggleFavorite, spIndex 
               <span className="mosaic-id">{card.idcard}</span>
               <span className="mosaic-char">{card.character}</span>
               <RarityBadge rarity={card.rarity} size="xs" />
-              {card.price && <span className="mosaic-price">{card.price}</span>}
+              <span className="mosaic-price">{card.price ? formatPrice(card.price) : '\u00A0'}</span>
             </div>
             <div className="mosaic-badges">
               <button
@@ -54,6 +58,11 @@ export default function MosaicView({ cards, onSelect, onToggleFavorite, spIndex 
               )}
             </div>
           </div>
+          {card.edition && (
+            <div className="mosaic-edition-bar">
+              <span className="mosaic-edition">{card.edition}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>

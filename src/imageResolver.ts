@@ -12,8 +12,12 @@ function getImageSuffix(rarity: string): string | null {
 export function resolveImageUrl(
   idcard: string,
   rarity: string,
-  spIndex?: Map<string, string>
+  spIndex?: Map<string, string>,
+  imageSuffix?: string
 ): string | null {
+  if (imageSuffix !== undefined) {
+    return `${CDN_BASE}/${idcard}${imageSuffix}.webp`;
+  }
   const suffix = getImageSuffix(rarity);
   if (suffix !== null) {
     return `${CDN_BASE}/${idcard}${suffix}.webp`;

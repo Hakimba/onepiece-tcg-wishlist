@@ -4,12 +4,15 @@ import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } fro
 import { parseCSV, downloadCSV } from './csv';
 import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
 import { loadSpIndex } from './imageResolver';
+import { loadVariantsIndex, resolveVariants } from './variantResolver';
+import type { VariantsIndex, AmbiguousCard } from './variantResolver';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MosaicView from './components/MosaicView';
 import CardDetail from './components/CardDetail';
 import AddCardForm from './components/AddCardForm';
+import DisambiguationQueue from './components/DisambiguationQueue';
 import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
@@ -28,8 +31,13 @@ function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [spIndex, setSpIndex] = useState<Map<string, string>>();
+  const [variantsIndex, setVariantsIndex] = useState<VariantsIndex>({});
   const [sortPrice, setSortPrice] = useState<SortPrice>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [disambiguationState, setDisambiguationState] = useState<{
+    ambiguous: AmbiguousCard[];
+    resolved: Card[];
+  } | null>(null);
 
   const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '' || showFavoritesOnly;
   const filteredCards = useMemo(() => {
@@ -65,9 +73,10 @@ function App() {
   );
 
   useEffect(() => {
-    Promise.all([loadCards(), loadSpIndex()]).then(([c, sp]) => {
+    Promise.all([loadCards(), loadSpIndex(), loadVariantsIndex()]).then(([c, sp, vi]) => {
       setCards(c);
       setSpIndex(sp);
+      setVariantsIndex(vi);
       setLoading(false);
     });
   }, []);
@@ -75,9 +84,14 @@ function App() {
   const handleImport = useCallback(async (file: File) => {
     const text = await file.text();
     const imported = parseCSV(text);
-    await saveCards(imported);
-    setCards(imported);
-  }, []);
+    const { resolved, ambiguous } = resolveVariants(imported, variantsIndex);
+    if (ambiguous.length > 0) {
+      setDisambiguationState({ ambiguous, resolved });
+    } else {
+      await saveCards(resolved);
+      setCards(resolved);
+    }
+  }, [variantsIndex]);
 
   const handleExport = useCallback(() => {
     downloadCSV(cards);
@@ -85,10 +99,18 @@ function App() {
 
   const handleAdd = useCallback(async (card: Omit<Card, 'id'>) => {
     const newCard: Card = { ...card, id: makeCardId(card.idcard, card.rarity) };
-    const updated = await addCard(newCard);
-    setCards(updated);
-    setShowAdd(false);
-  }, []);
+    const { resolved, ambiguous } = resolveVariants([newCard], variantsIndex);
+    if (ambiguous.length > 0) {
+      // Load current cards as the "resolved" base so disambiguation merges correctly
+      const currentCards = await loadCards();
+      setDisambiguationState({ ambiguous, resolved: currentCards });
+      setShowAdd(false);
+    } else {
+      const updated = await addCard(resolved[0]);
+      setCards(updated);
+      setShowAdd(false);
+    }
+  }, [variantsIndex]);
 
   const handleUpdate = useCallback(async (card: Card, oldId?: string) => {
     const updated = await updateCard(card, oldId);
@@ -117,6 +139,12 @@ function App() {
     setCards(updated);
   }, [cards]);
 
+  const handleDisambiguationFinish = useCallback(async (allCards: Card[]) => {
+    await saveCards(allCards);
+    setCards(allCards);
+    setDisambiguationState(null);
+  }, []);
+
   const handleNavigate = useCallback((page: PageId) => {
     setCurrentPage(page);
     setDrawerOpen(false);
@@ -143,6 +171,17 @@ function App() {
 
   if (loading) {
     return <div className="loading">Chargement...</div>;
+  }
+
+  if (disambiguationState) {
+    return (
+      <DisambiguationQueue
+        ambiguous={disambiguationState.ambiguous}
+        resolved={disambiguationState.resolved}
+        onFinish={handleDisambiguationFinish}
+        onCancel={() => setDisambiguationState(null)}
+      />
+    );
   }
 
   const drawer = (

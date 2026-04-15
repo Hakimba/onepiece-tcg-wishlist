@@ -22,8 +22,10 @@ src/
 ├── rarity.ts            — parseRarity(), buildRarityString(), couleurs
 ├── filters.ts           — applyFilters(), defaultFilters, hasActiveFilters
 ├── imageResolver.ts     — resolveImageUrl(), loadSpIndex() (CDN dotgg)
+├── variantResolver.ts   — resolveVariants(), loadVariantsIndex() (disambiguation)
 ├── components/
-│   ├── Header.tsx       — toggle liste/mosaïque, +, import, export, tout vider, hamburger
+│   ├── Header.tsx       — toggle liste/mosaïque, tri prix, favoris, filtres, import/export, hamburger
+│   ├── DisambiguationQueue.tsx — queue + picker de disambiguation des variantes
 │   ├── ListView.tsx     — vue tableau avec marqueurs image/achat
 │   ├── MosaicView.tsx   — grille responsive (auto-fill) avec images CDN
 │   ├── CardDetail.tsx   — détail carte, swipe, édition, zoom image, upload, lien achat
@@ -37,7 +39,10 @@ src/
 │   └── RarityBadge.tsx  — badges colorés par rareté
 ├── styles/app.css       — design flat sombre, optimisé iPhone
 public/
-└── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
+├── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
+└── variants-index.json  — index variantes pré-généré (1052 cartes avec 2+ variantes)
+scripts/
+└── gen-variants-index.sh — génère variants-index.json depuis l'API dotgg
 ```
 
 ## Système d'images
@@ -49,6 +54,15 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 - Override manuel possible via "Remplacer l'image" dans CardDetail (stocké en base64 dans IndexedDB)
 - Pour régénérer l'index SP : `curl -s "https://api.dotgg.gg/cgfw/getcards?game=onepiece" | python3 -c "import json,sys; d=json.load(sys.stdin); idx={c['id_normal']:c['id'][len(c['id_normal']):] for c in d if c.get('rarity')=='SP CARD' and c['id']!=c['id_normal']}; json.dump(idx,open('public/sp-index.json','w'),indent=2)"`
 
+## Désambiguïsation des variantes
+À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles (ex: OP01-013 "R Parallel" → 4 images différentes), l'app affiche un écran de désambiguïsation :
+- **Queue** : liste des cartes ambiguës avec compteur, navigable librement
+- **Picker** : grille d'images des candidats avec édition et rareté sous chaque image
+- L'utilisateur choisit la bonne image → auto-fill du nom canonique et de la rareté
+- "Terminer" sauvegarde même si toutes les cartes ne sont pas résolues
+- L'index `public/variants-index.json` est pré-généré via `scripts/gen-variants-index.sh`
+- Pour régénérer : `./scripts/gen-variants-index.sh > public/variants-index.json`
+
 ## Système de raretés
 La rareté d'une carte = **rareté de base** + **modificateurs optionnels** :
 - Bases : C, UC, R, SR, SEC, L (Leader)
@@ -58,7 +72,7 @@ La rareté d'une carte = **rareté de base** + **modificateurs optionnels** :
 
 ## CSV source
 Le fichier `~/onepiece-tcg-wishlist-v3.csv` (hors repo) contient la wishlist maintenue manuellement. L'app peut l'importer via le bouton Import (remplace toutes les entrées).
-Champs : `serie,idcard,character,rarity,price,seller_url`
+Champs : `serie,idcard,character,rarity,price,seller_url,favorite`
 
 ## Conventions
 - **Toujours utiliser les skills agent-browser** pour chercher des infos de cartes, prix, vendeurs sur Cardmarket ou tout autre site TCG. Ne pas utiliser WebFetch pour ces recherches.
