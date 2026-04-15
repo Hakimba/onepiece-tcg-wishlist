@@ -5,6 +5,7 @@ import { parseRarity, buildRarityString, RARITY_COLORS } from '../rarity';
 import { makeCardId } from '../store';
 import RarityBadge from './RarityBadge';
 import CardImage from './CardImage';
+import { resolveImageUrl } from '../imageResolver';
 
 interface Props {
   card: Card;
@@ -32,6 +33,7 @@ export default function CardDetail({
   const [buyLink, setBuyLink] = useState(card.buyLink ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
 
   // Edit fields
   const [editSerie, setEditSerie] = useState(card.serie);
@@ -51,6 +53,7 @@ export default function CardDetail({
     setBuyLink(card.buyLink ?? '');
     setConfirmDelete(false);
     setEditing(false);
+    setZoomed(false);
     setEditSerie(card.serie);
     setEditIdcard(card.idcard);
     setEditCharacter(card.character);
@@ -60,6 +63,18 @@ export default function CardDetail({
     setEditParallel(p.isParallel);
     setEditSP(p.isSP);
   }, [card.id]);
+
+  useEffect(() => {
+    document.body.style.overflow = zoomed ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [zoomed]);
+
+  useEffect(() => {
+    if (!zoomed) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoomed(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [zoomed]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,6 +138,8 @@ export default function CardDetail({
     [onSwipe]
   );
 
+  const imageUrl = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex);
+
   return (
     <div
       className="detail"
@@ -140,7 +157,13 @@ export default function CardDetail({
       </div>
 
       <div className="detail-image-section">
-        <CardImage card={card} spIndex={spIndex} className="detail-image" />
+        {imageUrl ? (
+          <div className="detail-image-tap" onClick={() => setZoomed(true)}>
+            <CardImage card={card} spIndex={spIndex} className="detail-image" />
+          </div>
+        ) : (
+          <CardImage card={card} spIndex={spIndex} className="detail-image" />
+        )}
         <div className="detail-image-actions">
           <button className="btn-upload" onClick={() => fileRef.current?.click()}>
             Remplacer l'image
@@ -309,6 +332,23 @@ export default function CardDetail({
           </button>
         )}
       </div>
+
+      {zoomed && imageUrl && (
+        <div
+          className="image-zoom-overlay"
+          onClick={() => setZoomed(false)}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          <button className="zoom-close" onClick={() => setZoomed(false)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <img src={imageUrl} alt={card.character} className="zoom-image" />
+        </div>
+      )}
     </div>
   );
 }
