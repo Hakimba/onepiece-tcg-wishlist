@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Card, ViewMode, FilterState, PageId } from './types';
+import type { Card, ViewMode, FilterState, PageId, SortPrice } from './types';
 import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } from './store';
 import { parseCSV, downloadCSV } from './csv';
 import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
@@ -28,16 +28,36 @@ function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [spIndex, setSpIndex] = useState<Map<string, string>>();
+  const [sortPrice, setSortPrice] = useState<SortPrice>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '';
+  const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '' || showFavoritesOnly;
   const filteredCards = useMemo(() => {
     const byFilters = applyFilters(cards, filters);
-    if (!searchQuery.trim()) return byFilters;
-    const q = searchQuery.trim().toLowerCase();
-    return byFilters.filter((c) =>
-      c.character.toLowerCase().includes(q) || c.idcard.toLowerCase().includes(q)
-    );
-  }, [cards, filters, searchQuery]);
+    let result = byFilters;
+    if (showFavoritesOnly) {
+      result = result.filter((c) => c.favorite);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((c) =>
+        c.character.toLowerCase().includes(q) || c.idcard.toLowerCase().includes(q)
+      );
+    }
+    if (sortPrice) {
+      const parsePrice = (p: string): number => {
+        const cleaned = p.replace(/[€\s]/g, '').replace(',', '.');
+        const match = cleaned.match(/[\d.]+/);
+        return match ? parseFloat(match[0]) : Infinity;
+      };
+      result = [...result].sort((a, b) => {
+        const pa = parsePrice(a.price);
+        const pb = parsePrice(b.price);
+        return sortPrice === 'asc' ? pa - pb : pb - pa;
+      });
+    }
+    return result;
+  }, [cards, filters, showFavoritesOnly, searchQuery, sortPrice]);
   const allSeries = useMemo(() => [...new Set(cards.map((c) => c.serie))].sort(), [cards]);
   const allCharacters = useMemo(
     () => [...new Set(cards.map((c) => c.character).filter(Boolean))].sort(),
@@ -90,6 +110,13 @@ function App() {
     setCards([]);
   }, []);
 
+  const handleToggleFavorite = useCallback(async (id: string) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    const updated = await updateCard({ ...card, favorite: !card.favorite });
+    setCards(updated);
+  }, [cards]);
+
   const handleNavigate = useCallback((page: PageId) => {
     setCurrentPage(page);
     setDrawerOpen(false);
@@ -136,6 +163,7 @@ function App() {
           onBack={() => setSelectedIndex(null)}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          onToggleFavorite={handleToggleFavorite}
           onSwipe={handleSwipe}
           hasPrev={selectedIndex > 0}
           hasNext={selectedIndex < filteredCards.length - 1}
@@ -178,6 +206,10 @@ function App() {
           onImport={handleImport}
           onExport={handleExport}
           onClear={handleClear}
+          sortPrice={sortPrice}
+          onSortPrice={setSortPrice}
+          showFavoritesOnly={showFavoritesOnly}
+          onToggleFavorites={() => setShowFavoritesOnly((s) => !s)}
           count={cards.length}
           filteredCount={filteredCards.length}
           filtersActive={filtersActive}
@@ -194,9 +226,9 @@ function App() {
           <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
         )}
         {view === 'list' ? (
-          <ListView cards={filteredCards} onSelect={handleSelect} spIndex={spIndex} />
+          <ListView cards={filteredCards} onSelect={handleSelect} onToggleFavorite={handleToggleFavorite} spIndex={spIndex} />
         ) : (
-          <MosaicView cards={filteredCards} onSelect={handleSelect} spIndex={spIndex} />
+          <MosaicView cards={filteredCards} onSelect={handleSelect} onToggleFavorite={handleToggleFavorite} spIndex={spIndex} />
         )}
         <BackToTop />
       </div>

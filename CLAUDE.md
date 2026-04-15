@@ -23,16 +23,16 @@ src/
 ├── filters.ts           — applyFilters(), defaultFilters, hasActiveFilters
 ├── imageResolver.ts     — resolveImageUrl(), loadSpIndex() (CDN dotgg)
 ├── components/
-│   ├── Header.tsx       — toggle liste/mosaïque, +, import, export, hamburger
+│   ├── Header.tsx       — toggle liste/mosaïque, +, import, export, tout vider, hamburger
 │   ├── ListView.tsx     — vue tableau avec marqueurs image/achat
-│   ├── MosaicView.tsx   — grille 2 colonnes avec images CDN
-│   ├── CardDetail.tsx   — détail carte, swipe, édition, upload image, lien achat
+│   ├── MosaicView.tsx   — grille responsive (auto-fill) avec images CDN
+│   ├── CardDetail.tsx   — détail carte, swipe, édition, zoom image, upload, lien achat
 │   ├── CardImage.tsx    — composant image : CDN auto, override manuel, fallback
 │   ├── AddCardForm.tsx  — formulaire ajout avec sélecteur rareté visuel
 │   ├── FilterPanel.tsx  — panneau filtres composables
 │   ├── SearchBar.tsx    — barre de recherche avec autocomplétion
 │   ├── CharactersPage.tsx — répertoire personnages
-│   ├── SideDrawer.tsx   — navigation latérale + bouton "Tout vider"
+│   ├── SideDrawer.tsx   — navigation latérale (Accueil, Personnages)
 │   ├── BackToTop.tsx    — bouton retour en haut
 │   └── RarityBadge.tsx  — badges colorés par rareté
 ├── styles/app.css       — design flat sombre, optimisé iPhone
