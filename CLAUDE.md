@@ -56,10 +56,12 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 
 ## Désambiguïsation des variantes
 À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles (ex: OP01-013 "R Parallel" → 4 images différentes), l'app affiche un écran de désambiguïsation :
-- **Queue** : liste des cartes ambiguës avec compteur, navigable librement
-- **Picker** : grille d'images des candidats avec édition et rareté sous chaque image
+- **Queue** : liste des cartes ambiguës avec compteur, navigable librement. Affiche combien de cartes non-ambiguës seront importées automatiquement.
+- **Picker** : grille d'images des candidats (200px PC, 140px mobile), tap image = zoom carousel, bouton "Choisir" séparé
+- **Carousel** : overlay fullscreen avec swipe tactile, flèches PC, dots de navigation, bouton "Choisir cette variante"
 - L'utilisateur choisit la bonne image → auto-fill du nom canonique et de la rareté
-- "Terminer" sauvegarde même si toutes les cartes ne sont pas résolues
+- "Terminer" n'importe que les cartes explicitement choisies (les non-résolues sont ignorées)
+- **Filtre set intelligent** : exclut les reprints d'autres extensions classiques (OP, EB, ST, PRB) mais garde les promos/events (pas de bracket dans `cs`) et les sets collectors (GC, TS, AC...)
 - L'index `public/variants-index.json` est pré-généré via `scripts/gen-variants-index.sh`
 - Pour régénérer : `./scripts/gen-variants-index.sh > public/variants-index.json`
 
