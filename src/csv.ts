@@ -52,12 +52,14 @@ export function parseCSV(text: string): Card[] {
   const rarityIdx = header.indexOf('rarity');
   const priceIdx = header.indexOf('price');
   const sellerUrlIdx = header.indexOf('seller_url');
+  const favoriteIdx = header.indexOf('favorite');
 
   return lines.slice(1).filter((l) => l.trim()).map((line) => {
     const cols = parseCSVLine(line);
     const idcard = cols[idcardIdx] ?? '';
     const rarity = cols[rarityIdx] ?? '';
     const sellerUrl = sellerUrlIdx >= 0 ? cols[sellerUrlIdx] ?? '' : '';
+    const fav = favoriteIdx >= 0 ? cols[favoriteIdx] ?? '' : '';
     return {
       id: makeCardId(idcard, rarity),
       serie: cols[serieIdx] ?? '',
@@ -66,14 +68,15 @@ export function parseCSV(text: string): Card[] {
       rarity,
       price: cols[priceIdx] ?? '',
       ...(sellerUrl ? { buyLink: sellerUrl } : {}),
+      ...(fav === '1' ? { favorite: true } : {}),
     };
   });
 }
 
 export function exportCSV(cards: Card[]): string {
-  const header = 'serie,idcard,character,rarity,price,seller_url';
+  const header = 'serie,idcard,character,rarity,price,seller_url,favorite';
   const rows = cards.map(
-    (c) => [c.serie, c.idcard, c.character, c.rarity, c.price, c.buyLink ?? '']
+    (c) => [c.serie, c.idcard, c.character, c.rarity, c.price, c.buyLink ?? '', c.favorite ? '1' : '']
       .map(escapeCSVField).join(',')
   );
   return [header, ...rows].join('\n') + '\n';

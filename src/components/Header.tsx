@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import type { ViewMode } from '../types';
+import type { ViewMode, SortPrice } from '../types';
 
 interface Props {
   view: ViewMode;
@@ -8,6 +8,10 @@ interface Props {
   onImport: (file: File) => void;
   onExport: () => void;
   onClear: () => void;
+  sortPrice: SortPrice;
+  onSortPrice: (s: SortPrice) => void;
+  showFavoritesOnly: boolean;
+  onToggleFavorites: () => void;
   count: number;
   filteredCount: number;
   filtersActive: boolean;
@@ -16,7 +20,7 @@ interface Props {
   onMenuOpen: () => void;
 }
 
-export default function Header({ view, onViewChange, onAdd, onImport, onExport, onClear, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen }: Props) {
+export default function Header({ view, onViewChange, onAdd, onImport, onExport, onClear, sortPrice, onSortPrice, showFavoritesOnly, onToggleFavorites, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -70,6 +74,39 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
             </svg>
             {filtersActive && <span className="filter-dot" />}
           </button>
+        <div className="sort-toggle">
+          <button
+            className={sortPrice === 'asc' ? 'active' : ''}
+            onClick={() => onSortPrice(sortPrice === 'asc' ? null : 'asc')}
+            title="Prix croissant"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
+            <span className="sort-label">€</span>
+          </button>
+          <button
+            className={sortPrice === 'desc' ? 'active' : ''}
+            onClick={() => onSortPrice(sortPrice === 'desc' ? null : 'desc')}
+            title="Prix décroissant"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <polyline points="19 12 12 19 5 12" />
+            </svg>
+            <span className="sort-label">€</span>
+          </button>
+        </div>
+        <button
+          className={`btn-favorites ${showFavoritesOnly ? 'active' : ''}`}
+          onClick={onToggleFavorites}
+          title={showFavoritesOnly ? 'Afficher tout' : 'Favoris uniquement'}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={showFavoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </button>
         <div className="header-buttons">
           <button className="btn-add" onClick={onAdd}>+</button>
           <button className="btn-secondary" onClick={() => fileRef.current?.click()}>

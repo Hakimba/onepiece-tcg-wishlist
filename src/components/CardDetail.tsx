@@ -12,6 +12,7 @@ interface Props {
   onBack: () => void;
   onUpdate: (card: Card, oldId?: string) => void;
   onDelete: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   onSwipe: (direction: 'left' | 'right') => void;
   hasPrev: boolean;
   hasNext: boolean;
@@ -25,6 +26,7 @@ export default function CardDetail({
   onBack,
   onUpdate,
   onDelete,
+  onToggleFavorite,
   onSwipe,
   hasPrev,
   hasNext,
@@ -151,6 +153,14 @@ export default function CardDetail({
           ← Retour
         </button>
         <div className="detail-nav">
+          <button
+            className={`btn-favorite-detail ${card.favorite ? 'active' : ''}`}
+            onClick={() => onToggleFavorite(card.id)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={card.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </button>
           <button disabled={!hasPrev} onClick={() => onSwipe('left')}>‹</button>
           <button disabled={!hasNext} onClick={() => onSwipe('right')}>›</button>
         </div>

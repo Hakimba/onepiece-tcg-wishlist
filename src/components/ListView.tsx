@@ -4,10 +4,11 @@ import RarityBadge from './RarityBadge';
 interface Props {
   cards: Card[];
   onSelect: (index: number) => void;
+  onToggleFavorite: (id: string) => void;
   spIndex?: Map<string, string>;
 }
 
-export default function ListView({ cards, onSelect }: Props) {
+export default function ListView({ cards, onSelect, onToggleFavorite }: Props) {
   if (cards.length === 0) {
     return <div className="empty">Aucune carte. Importe un CSV ou ajoute une carte.</div>;
   }
@@ -24,6 +25,14 @@ export default function ListView({ cards, onSelect }: Props) {
       {cards.map((card, i) => (
         <div key={card.id} className="list-row" onClick={() => onSelect(i)}>
           <span className="col-markers">
+            <button
+              className={`marker-star ${card.favorite ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(card.id); }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={card.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
             <svg className="marker-icon active" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />

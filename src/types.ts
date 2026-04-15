@@ -7,9 +7,12 @@ export interface Card {
   price: string;
   image?: string;
   buyLink?: string;
+  favorite?: boolean;
 }
 
 export type ViewMode = 'list' | 'mosaic';
+
+export type SortPrice = 'asc' | 'desc' | null;
 
 export type PageId = 'home' | 'characters';
 
