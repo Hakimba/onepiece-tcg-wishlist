@@ -45,7 +45,7 @@ export function applyFilters(cards: Card[], filters: FilterState): Card[] {
       return false;
     }
 
-    if (filters.raritySP !== null && parsed.isSP !== filters.raritySP) {
+    if (filters.raritySP !== null && (parsed.base === 'SP') !== filters.raritySP) {
       return false;
     }
 

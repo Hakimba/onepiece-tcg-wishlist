@@ -1,22 +1,23 @@
-export type BaseRarity = 'C' | 'UC' | 'R' | 'SR' | 'SEC' | 'L';
+export type BaseRarity = 'C' | 'UC' | 'R' | 'SR' | 'SEC' | 'L' | 'SP';
 
 export interface ParsedRarity {
   base: BaseRarity;
   isParallel: boolean;
-  isSP: boolean;
 }
 
 export function parseRarity(raw: string): ParsedRarity {
   const r = raw.trim();
   const lower = r.toLowerCase();
 
-  const isSP = lower.startsWith('sp ');
   const isParallel = lower.includes('parallel') || lower.includes('alt');
 
-  // Strip modifiers to find base
-  let cleaned = r;
-  if (isSP) cleaned = cleaned.replace(/^sp\s+/i, '');
-  cleaned = cleaned.replace(/\s*(parallel|alt(ernative)?)\s*/gi, '').trim();
+  // SP is a standalone base rarity (matches dotgg "SP CARD")
+  if (lower.startsWith('sp') && (lower === 'sp' || lower.startsWith('sp ') || lower.startsWith('sp card'))) {
+    return { base: 'SP', isParallel };
+  }
+
+  // Strip parallel/alt to find base
+  let cleaned = r.replace(/\s*(parallel|alt(ernative)?)\s*/gi, '').trim();
 
   let base: BaseRarity;
   const cl = cleaned.toLowerCase();
@@ -28,13 +29,13 @@ export function parseRarity(raw: string): ParsedRarity {
   else if (cl === 'l' || cl === 'leader') base = 'L';
   else base = 'R'; // fallback
 
-  return { base, isParallel, isSP };
+  return { base, isParallel };
 }
 
-export function buildRarityString(base: BaseRarity, isParallel: boolean, isSP: boolean): string {
+export function buildRarityString(base: BaseRarity, isParallel: boolean): string {
   let result = '';
-  if (isSP) result += 'SP ';
-  result += base === 'L' ? 'Leader' : base;
+  if (base === 'L') result = 'Leader';
+  else result = base;
   if (isParallel) result += ' Parallel';
   return result;
 }
@@ -46,4 +47,5 @@ export const RARITY_COLORS: Record<BaseRarity, string> = {
   SR: '#a855f7',
   SEC: '#f0c040',
   L: '#14b8a6',
+  SP: '#22c55e',
 };
