@@ -9,16 +9,15 @@ interface Props {
   error?: string;
 }
 
-const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
+const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'SP'];
 const VALID_ID_REGEX = /^[A-Z]{2,4}\d{1,2}-\d{3}[A-Z]?$/;
 
 export default function AddCardForm({ onAdd, onCancel, error }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
-  const [baseRarity, setBaseRarity] = useState<BaseRarity>('R');
+  const [baseRarity, setBaseRarity] = useState<BaseRarity | null>(null);
   const [isParallel, setIsParallel] = useState(false);
-  const [isSP, setIsSP] = useState(false);
   const [price, setPrice] = useState('');
   const [idError, setIdError] = useState('');
 
@@ -30,17 +29,12 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
       setIdError('Format invalide (ex: OP01-013)');
       return;
     }
-    const idPrefix = id.match(/^([A-Z]{2,4}\d{1,2})/)?.[1] ?? '';
-    if (serie.trim() && idPrefix !== serie.trim().toUpperCase()) {
-      setIdError(`Série incohérente avec l'ID (attendu: ${idPrefix})`);
-      return;
-    }
     setIdError('');
     onAdd({
-      serie: serie.trim() || idPrefix,
+      serie: serie.trim().toUpperCase(),
       idcard: id,
       character: character.trim(),
-      rarity: buildRarityString(baseRarity, isParallel, isSP),
+      rarity: baseRarity ? buildRarityString(baseRarity, isParallel) : '',
       price: price.trim(),
     });
   };
@@ -84,6 +78,14 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
         <div className="form-field">
           <label>Rareté</label>
           <div className="rarity-picker">
+            <button
+              type="button"
+              className={`rarity-pill${baseRarity === null ? ' selected' : ''}`}
+              style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
+              onClick={() => { setBaseRarity(null); setIsParallel(false); }}
+            >
+              ?
+            </button>
             {RARITIES.map((r) => (
               <button
                 key={r}
@@ -92,12 +94,13 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
                 style={{
                   '--pill-color': RARITY_COLORS[r],
                 } as React.CSSProperties}
-                onClick={() => setBaseRarity(r)}
+                onClick={() => { setBaseRarity(r); if (r === 'SP') setIsParallel(false); }}
               >
                 {r === 'L' ? 'Leader' : r}
               </button>
             ))}
           </div>
+          {baseRarity !== null && baseRarity !== 'SP' && (
           <div className="rarity-toggles">
             <label className="rarity-toggle">
               <input
@@ -107,15 +110,8 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
               />
               <span className="toggle-label toggle-alt">Parallel / Alt</span>
             </label>
-            <label className="rarity-toggle">
-              <input
-                type="checkbox"
-                checked={isSP}
-                onChange={(e) => setIsSP(e.target.checked)}
-              />
-              <span className="toggle-label toggle-sp">SP</span>
-            </label>
           </div>
+          )}
         </div>
         <div className="form-field">
           <label>Prix</label>

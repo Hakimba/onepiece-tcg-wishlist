@@ -21,7 +21,7 @@ import './styles/app.css';
 
 function App() {
   const [cards, setCards] = useState<Card[]>([]);
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<ViewMode>('mosaic');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -37,6 +37,7 @@ function App() {
   const [disambiguationState, setDisambiguationState] = useState<{
     ambiguous: AmbiguousCard[];
     resolved: Card[];
+    mode: 'import' | 'add';
   } | null>(null);
   const [addError, setAddError] = useState('');
 
@@ -87,7 +88,7 @@ function App() {
     const imported = parseCSV(text);
     const { resolved, ambiguous } = resolveVariants(imported, variantsIndex);
     if (ambiguous.length > 0) {
-      setDisambiguationState({ ambiguous, resolved });
+      setDisambiguationState({ ambiguous, resolved, mode: 'import' });
     } else {
       // Deduplicate resolved cards
       const deduped = resolved.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
@@ -104,7 +105,7 @@ function App() {
     const newCard: Card = { ...card, id: makeCardId(card.idcard, card.rarity) };
     const { resolved, ambiguous } = resolveVariants([newCard], variantsIndex, cards);
     if (ambiguous.length > 0) {
-      setDisambiguationState({ ambiguous, resolved: cards });
+      setDisambiguationState({ ambiguous, resolved: [], mode: 'add' });
       setShowAdd(false);
       setAddError('');
     } else if (resolved.length === 0) {
@@ -148,11 +149,22 @@ function App() {
     setCards(updated);
   }, [cards]);
 
-  const handleDisambiguationFinish = useCallback(async (allCards: Card[]) => {
-    await saveCards(allCards);
-    setCards(allCards);
+  const handleDisambiguationFinish = useCallback(async (resultCards: Card[]) => {
+    if (disambiguationState?.mode === 'add') {
+      // resultCards = only new disambiguated cards, append to existing
+      const current = await loadCards();
+      for (const c of resultCards) {
+        if (!current.some((x) => x.id === c.id)) current.push(c);
+      }
+      await saveCards(current);
+      setCards(current);
+    } else {
+      // import mode: resultCards = resolved + disambiguated (full replacement)
+      await saveCards(resultCards);
+      setCards(resultCards);
+    }
     setDisambiguationState(null);
-  }, []);
+  }, [disambiguationState?.mode]);
 
   const handleNavigate = useCallback((page: PageId) => {
     setCurrentPage(page);
@@ -187,6 +199,7 @@ function App() {
       <DisambiguationQueue
         ambiguous={disambiguationState.ambiguous}
         resolved={disambiguationState.resolved}
+        mode={disambiguationState.mode}
         onFinish={handleDisambiguationFinish}
         onCancel={() => setDisambiguationState(null)}
       />

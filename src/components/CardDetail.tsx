@@ -19,7 +19,7 @@ interface Props {
   spIndex?: Map<string, string>;
 }
 
-const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
+const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'SP'];
 
 export default function CardDetail({
   card,
@@ -43,9 +43,8 @@ export default function CardDetail({
   const [editCharacter, setEditCharacter] = useState(card.character);
   const [editPrice, setEditPrice] = useState(card.price);
   const parsed = parseRarity(card.rarity);
-  const [editBase, setEditBase] = useState<BaseRarity>(parsed.base);
+  const [editBase, setEditBase] = useState<BaseRarity | null>(parsed.base);
   const [editParallel, setEditParallel] = useState(parsed.isParallel);
-  const [editSP, setEditSP] = useState(parsed.isSP);
 
   const touchStart = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -63,7 +62,6 @@ export default function CardDetail({
     const p = parseRarity(card.rarity);
     setEditBase(p.base);
     setEditParallel(p.isParallel);
-    setEditSP(p.isSP);
   }, [card.id]);
 
   useEffect(() => {
@@ -93,7 +91,7 @@ export default function CardDetail({
   };
 
   const handleEditSave = () => {
-    const newRarity = buildRarityString(editBase, editParallel, editSP);
+    const newRarity = editBase ? buildRarityString(editBase, editParallel) : '';
     const newIdcard = editIdcard.trim().toUpperCase();
     const newId = makeCardId(newIdcard, newRarity);
     const oldId = card.id !== newId ? card.id : undefined;
@@ -120,7 +118,6 @@ export default function CardDetail({
     const p = parseRarity(card.rarity);
     setEditBase(p.base);
     setEditParallel(p.isParallel);
-    setEditSP(p.isSP);
     setEditing(false);
   };
 
@@ -229,18 +226,27 @@ export default function CardDetail({
             <div className="detail-edit-field">
               <label className="detail-label">Rareté</label>
               <div className="rarity-picker">
+                <button
+                  type="button"
+                  className={`rarity-pill${editBase === null ? ' selected' : ''}`}
+                  style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
+                  onClick={() => { setEditBase(null); setEditParallel(false); }}
+                >
+                  ?
+                </button>
                 {RARITIES.map((r) => (
                   <button
                     key={r}
                     type="button"
                     className={`rarity-pill${editBase === r ? ' selected' : ''}`}
                     style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
-                    onClick={() => setEditBase(r)}
+                    onClick={() => { setEditBase(r); if (r === 'SP') setEditParallel(false); }}
                   >
                     {r === 'L' ? 'Leader' : r}
                   </button>
                 ))}
               </div>
+              {editBase !== null && editBase !== 'SP' && (
               <div className="rarity-toggles">
                 <label className="rarity-toggle">
                   <input
@@ -250,15 +256,8 @@ export default function CardDetail({
                   />
                   <span className="toggle-label toggle-alt">Parallel / Alt</span>
                 </label>
-                <label className="rarity-toggle">
-                  <input
-                    type="checkbox"
-                    checked={editSP}
-                    onChange={(e) => setEditSP(e.target.checked)}
-                  />
-                  <span className="toggle-label toggle-sp">SP</span>
-                </label>
               </div>
+              )}
             </div>
             <div className="detail-edit-field">
               <label className="detail-label">Prix</label>

@@ -7,10 +7,10 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 - **Import/export CSV** — importer une wishlist, exporter pour backup ou partage
 - **Deux vues** — liste (tableau) ou mosaique (grille d'images responsive)
 - **Fiche carte** — detail avec image, rarete, prix, lien d'achat, navigation par swipe, zoom fullscreen
-- **Ajout manuel** — formulaire avec selecteur de rarete visuel (base + modificateurs Parallel/SP)
+- **Ajout manuel** — formulaire avec selecteur de rarete visuel (pills C/UC/R/SR/SEC/Leader/SP + toggle Parallel), option "?" pour rarete inconnue
 - **Edition complete** — tous les champs editables depuis la fiche carte
-- **Images automatiques** — images CDN depuis dotgg, resolution automatique du suffixe selon la rarete
-- **Disambiguation des variantes** — quand plusieurs images possibles (ex: parallels de sets differents), choix interactif avec carousel fullscreen et swipe
+- **Images automatiques** — images CDN depuis dotgg, resolution automatique du suffixe selon la rarete, verification de coherence rarete/serie
+- **Disambiguation des variantes** — quand plusieurs images possibles, choix interactif avec carousel fullscreen et swipe. Cartes groupees par categorie (rarete inexistante, variantes multiples, rarete non precisee). Multi-selection possible quand rarete "?"
 - **Filtres composables** — serie, rarete (base + modificateurs), prix min/max, combinables
 - **Recherche** — barre de recherche avec autocompletion sur les noms de personnages
 - **Repertoire personnages** — liste auto-generee, clic = filtre sur la wishlist
@@ -41,6 +41,6 @@ Push sur `master` → build + deploy auto sur GitHub Pages.
 ## Format CSV
 
 ```csv
-serie,idcard,character,rarity,price,seller_url,favorite
-OP01,OP01-013,Sanji,R Parallel,29.99€,https://www.cardmarket.com/en/OnePiece/Users/...,1
+serie,idcard,character,rarity,price,seller_url,favorite,edition,image_suffix
+OP01,OP01-013,Sanji,R Parallel,29.99€,https://www.cardmarket.com/en/OnePiece/Users/...,1,,_p1
 ```

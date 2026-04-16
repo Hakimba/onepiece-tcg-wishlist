@@ -4,7 +4,7 @@ const CDN_BASE = 'https://static.dotgg.gg/onepiece/card';
 
 function getImageSuffix(rarity: string): string | null {
   const parsed = parseRarity(rarity);
-  if (parsed.isSP) return null;
+  if (parsed.base === 'SP') return null;
   if (parsed.isParallel) return '_p1';
   return '';
 }

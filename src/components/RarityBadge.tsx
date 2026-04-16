@@ -12,9 +12,24 @@ const SIZE_MAP = {
 };
 
 export default function RarityBadge({ rarity, size = 'sm' }: Props) {
+  const s = SIZE_MAP[size];
+  const isUnknown = !rarity.trim() || rarity.trim() === '?';
+
+  if (isUnknown) {
+    return (
+      <span className="rarity-badge" style={{ gap: s.gap }}>
+        <span
+          className="rarity-base"
+          style={{ background: '#6b7280', color: '#fff', fontSize: s.fontSize, padding: s.padding }}
+        >
+          ?
+        </span>
+      </span>
+    );
+  }
+
   const parsed = parseRarity(rarity);
   const color = RARITY_COLORS[parsed.base];
-  const s = SIZE_MAP[size];
   const isDark = parsed.base === 'SEC';
 
   return (
@@ -36,14 +51,6 @@ export default function RarityBadge({ rarity, size = 'sm' }: Props) {
           style={{ fontSize: s.tagFont, padding: s.padding }}
         >
           ALT
-        </span>
-      )}
-      {parsed.isSP && (
-        <span
-          className="rarity-tag-sp"
-          style={{ fontSize: s.tagFont, padding: s.padding }}
-        >
-          SP
         </span>
       )}
     </span>

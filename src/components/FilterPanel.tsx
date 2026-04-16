@@ -9,9 +9,9 @@ interface Props {
   allSeries: string[];
 }
 
-const BASES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
+const BASES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'SP'];
 const BASE_LABELS: Record<BaseRarity, string> = {
-  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader',
+  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader', SP: 'SP',
 };
 
 function TriToggle({ label, value, onChange, activeColor }: {
