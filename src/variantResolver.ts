@@ -106,6 +106,7 @@ export function resolveVariants(
     }
 
     let candidates = filterCandidates(entry.variants, card.rarity, card.idcard);
+    const candidatesBeforeDedup = candidates.length;
 
     // Remove candidates already present in the wishlist
     const existingSuffixes = existingSuffixesByIdcard.get(card.idcard);
@@ -114,7 +115,16 @@ export function resolveVariants(
     }
 
     if (candidates.length === 0) {
-      // All variants already in wishlist — skip
+      if (candidatesBeforeDedup > 0) {
+        // All variants already in wishlist — skip
+        continue;
+      }
+      // No candidates from rarity filter — add card as-is (no variant info)
+      const updated = { ...card };
+      if (!card.character.trim() && entry.name) {
+        updated.character = entry.name;
+      }
+      resolved.push(updated);
       continue;
     }
 
