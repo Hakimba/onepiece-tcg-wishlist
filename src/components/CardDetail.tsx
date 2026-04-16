@@ -20,6 +20,8 @@ import CardImage from './CardImage';
 
 const EMPTY_SP_INDEX: SpIndex = new Map();
 
+type SlidePhase = 'idle' | 'out' | 'entering' | 'in';
+
 interface Props {
   card: Card;
   onBack: () => void;
@@ -43,12 +45,10 @@ export default function CardDetail({
   hasNext,
   spIndex,
 }: Props) {
-  const [buyLink, setBuyLink] = useState(Option.getOrElse(card.buyLink, () => ''));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [zoomed, setZoomed] = useState(false);
 
-  // Edit fields
   const [editSerie, setEditSerie] = useState(card.serie);
   const [editIdcard, setEditIdcard] = useState(card.idcard as string);
   const [editCharacter, setEditCharacter] = useState(card.character);
@@ -57,15 +57,27 @@ export default function CardDetail({
   const [editBase, setEditBase] = useState<StandardBase | null>(base);
   const [editParallel, setEditParallel] = useState(rarityIsParallel(card.rarity));
   const [editSP, setEditSP] = useState(rarityIsSP(card.rarity));
+  const [editBuyLink, setEditBuyLink] = useState(Option.getOrElse(card.buyLink, () => ''));
 
-  const touchStart = useRef<number | null>(null);
+  // Swipe animation state
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [slidePhase, setSlidePhase] = useState<SlidePhase>('idle');
+
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const isHorizontalSwipe = useRef<boolean | null>(null);
+  const slideDirectionRef = useRef<'left' | 'right' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useBodyScrollLock(zoomed);
 
+  // Keep ref in sync for use in transition callbacks
+  useEffect(() => { slideDirectionRef.current = slideDirection; }, [slideDirection]);
+
   // Reset state when card changes (swipe)
   useEffect(() => {
-    setBuyLink(Option.getOrElse(card.buyLink, () => ''));
     setConfirmDelete(false);
     setEditing(false);
     setZoomed(false);
@@ -77,14 +89,149 @@ export default function CardDetail({
     setEditBase(b);
     setEditParallel(rarityIsParallel(card.rarity));
     setEditSP(rarityIsSP(card.rarity));
+    setEditBuyLink(Option.getOrElse(card.buyLink, () => ''));
+
+    // Slide-in: position off-screen on opposite side, then animate to center
+    if (slideDirectionRef.current) {
+      const dir = slideDirectionRef.current;
+      setSlidePhase('entering');
+      setDragX(dir === 'right' ? window.innerWidth : -window.innerWidth);
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setSlidePhase('in');
+          setDragX(0);
+        });
+      });
+    }
   }, [card.id]);
 
+  // Escape key closes zoom
   useEffect(() => {
     if (!zoomed) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoomed(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [zoomed]);
+
+  // --- Navigation ---
+
+  const commitNavigation = useCallback((direction: 'left' | 'right') => {
+    if (direction === 'left' && !hasPrev) return;
+    if (direction === 'right' && !hasNext) return;
+    if (slidePhase !== 'idle') return;
+    setSlideDirection(direction);
+    setSlidePhase('out');
+    setDragX(0);
+    setIsDragging(false);
+  }, [hasPrev, hasNext, slidePhase]);
+
+  const handleTransitionEnd = useCallback(() => {
+    if (slidePhase === 'out' && slideDirection) {
+      onSwipe(slideDirection);
+    } else if (slidePhase === 'in') {
+      setSlidePhase('idle');
+      setSlideDirection(null);
+    }
+  }, [slidePhase, slideDirection, onSwipe]);
+
+  // Keyboard navigation (ArrowLeft / ArrowRight)
+  useEffect(() => {
+    if (zoomed || editing) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        commitNavigation('left');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        commitNavigation('right');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [zoomed, editing, commitNavigation]);
+
+  // --- Touch handlers ---
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isHorizontalSwipe.current = null;
+    setIsDragging(true);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    if (slidePhase !== 'idle') return;
+
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    const deltaY = e.touches[0].clientY - touchStartY.current;
+
+    // Determine swipe direction on first significant move
+    if (isHorizontalSwipe.current === null) {
+      if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return;
+      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY);
+      if (!isHorizontalSwipe.current) {
+        setIsDragging(false);
+        return;
+      }
+    }
+
+    if (!isHorizontalSwipe.current) return;
+
+    // Rubber-band at bounds
+    let x = deltaX;
+    if ((x > 0 && !hasPrev) || (x < 0 && !hasNext)) {
+      x = x / 3;
+    }
+    setDragX(x);
+  }, [slidePhase, hasPrev, hasNext]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartX.current === null) return;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    if (!isHorizontalSwipe.current || slidePhase !== 'idle') {
+      setIsDragging(false);
+      setDragX(0);
+      return;
+    }
+
+    if (Math.abs(dragX) > 100) {
+      const direction = dragX < 0 ? 'right' : 'left';
+      const canGo = direction === 'left' ? hasPrev : hasNext;
+      if (canGo) {
+        commitNavigation(direction);
+        return;
+      }
+    }
+
+    // Snap back
+    setIsDragging(false);
+    setDragX(0);
+  }, [dragX, slidePhase, hasPrev, hasNext, commitNavigation]);
+
+  // --- Inline styles for animation ---
+
+  const dragRotation = isDragging ? dragX * 0.03 : 0;
+
+  const bodyTransform = slidePhase === 'out'
+    ? `translateX(${slideDirection === 'right' ? '-110%' : '110%'}) rotate(${slideDirection === 'right' ? -5 : 5}deg)`
+    : `translateX(${dragX}px)${dragRotation ? ` rotate(${dragRotation}deg)` : ''}`;
+
+  const bodyTransition = (isDragging || slidePhase === 'entering')
+    ? 'none'
+    : 'transform 0.15s ease-out';
+
+  const bodyStyle: React.CSSProperties = {
+    transform: bodyTransform,
+    transition: bodyTransition,
+    willChange: isDragging ? 'transform' : undefined,
+  };
+
+  // --- Handlers ---
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,15 +243,12 @@ export default function CardDetail({
     reader.readAsDataURL(file);
   };
 
-  const handleLinkSave = () => {
-    onUpdate({ ...card, buyLink: buyLink.trim() ? Option.some(buyLink.trim()) : Option.none() });
-  };
-
   const handleEditSave = () => {
     const newRarity = buildRarity(editBase, editParallel, editSP);
     const newIdcard = editIdcard.trim().toUpperCase();
     const newId = makeCardId(newIdcard, newRarity);
     const oldId = card.id !== newId ? card.id as string : undefined;
+    const trimmedLink = editBuyLink.trim();
     onUpdate(
       {
         ...card,
@@ -113,6 +257,7 @@ export default function CardDetail({
         character: editCharacter.trim(),
         rarity: newRarity,
         price: parsePrice(editPrice.trim()),
+        buyLink: trimmedLink ? Option.some(trimmedLink) : Option.none(),
         id: newId,
       },
       oldId,
@@ -129,34 +274,15 @@ export default function CardDetail({
     setEditBase(b);
     setEditParallel(rarityIsParallel(card.rarity));
     setEditSP(rarityIsSP(card.rarity));
+    setEditBuyLink(Option.getOrElse(card.buyLink, () => ''));
     setEditing(false);
   };
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (touchStart.current === null) return;
-      const diff = e.changedTouches[0].clientX - touchStart.current;
-      if (Math.abs(diff) > 60) {
-        onSwipe(diff > 0 ? 'left' : 'right');
-      }
-      touchStart.current = null;
-    },
-    [onSwipe],
-  );
 
   const imageUrlOpt = resolveImageUrl(card, spIndex ?? EMPTY_SP_INDEX);
   const imageUrl = Option.getOrNull(imageUrlOpt);
 
   return (
-    <div
-      className="detail"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="detail">
       <div className="detail-header">
         <button className="btn-back" onClick={onBack}>
           ← Retour
@@ -170,204 +296,227 @@ export default function CardDetail({
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </button>
-          <button disabled={!hasPrev} onClick={() => onSwipe('left')}>‹</button>
-          <button disabled={!hasNext} onClick={() => onSwipe('right')}>›</button>
+          <button disabled={!hasPrev} onClick={() => commitNavigation('left')}>‹</button>
+          <button disabled={!hasNext} onClick={() => commitNavigation('right')}>›</button>
         </div>
       </div>
 
-      <div className="detail-image-section">
-        {imageUrl ? (
-          <div className="detail-image-tap" onClick={() => setZoomed(true)}>
+      <div
+        className="detail-body"
+        style={bodyStyle}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTransitionEnd={handleTransitionEnd}
+      >
+        <div className="detail-image-section">
+          {imageUrl ? (
+            <div className="detail-image-tap" onClick={() => setZoomed(true)}>
+              <CardImage card={card} spIndex={spIndex} className="detail-image" />
+            </div>
+          ) : (
             <CardImage card={card} spIndex={spIndex} className="detail-image" />
+          )}
+          <div className="detail-image-overlay-actions">
+            <button className="btn-icon-circle" onClick={() => fileRef.current?.click()} title="Remplacer l'image">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </button>
+            {Option.isSome(card.image) && (
+              <button
+                className="btn-icon-circle"
+                onClick={() => onUpdate({ ...card, image: Option.none() })}
+                title="Réinitialiser l'image"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+              </button>
+            )}
           </div>
-        ) : (
-          <CardImage card={card} spIndex={spIndex} className="detail-image" />
-        )}
-        <div className="detail-image-actions">
-          <button className="btn-upload" onClick={() => fileRef.current?.click()}>
-            Remplacer l'image
-          </button>
-          {Option.isSome(card.image) && (
-            <button
-              className="btn-secondary"
-              onClick={() => onUpdate({ ...card, image: Option.none() })}
-            >
-              Réinitialiser
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        <div className="detail-card">
+          {editing ? (
+            <>
+              <div className="detail-edit-field">
+                <label className="detail-label">Série</label>
+                <input
+                  type="text"
+                  value={editSerie}
+                  onChange={(e) => setEditSerie(e.target.value)}
+                  placeholder="OP01"
+                />
+              </div>
+              <div className="detail-edit-field">
+                <label className="detail-label">ID Carte</label>
+                <input
+                  type="text"
+                  value={editIdcard}
+                  onChange={(e) => setEditIdcard(e.target.value)}
+                  placeholder="OP01-025"
+                />
+              </div>
+              <div className="detail-edit-field">
+                <label className="detail-label">Personnage</label>
+                <input
+                  type="text"
+                  value={editCharacter}
+                  onChange={(e) => setEditCharacter(e.target.value)}
+                  placeholder="Roronoa Zoro"
+                />
+              </div>
+              <div className="detail-edit-field">
+                <label className="detail-label">Rareté</label>
+                <div className="rarity-picker">
+                  <button
+                    type="button"
+                    className={`rarity-pill${editBase === null && !editSP ? ' selected' : ''}`}
+                    style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
+                    onClick={() => { setEditBase(null); setEditParallel(false); setEditSP(false); }}
+                  >
+                    ?
+                  </button>
+                  {STANDARD_BASES.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`rarity-pill${editBase === r && !editSP ? ' selected' : ''}`}
+                      style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
+                      onClick={() => { setEditBase(r); setEditSP(false); }}
+                    >
+                      {r === 'L' ? 'Leader' : r}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`rarity-pill${editSP ? ' selected' : ''}`}
+                    style={{ '--pill-color': RARITY_COLORS['SP'] } as React.CSSProperties}
+                    onClick={() => { setEditSP(true); setEditBase(null); setEditParallel(false); }}
+                  >
+                    SP
+                  </button>
+                </div>
+                {editBase !== null && !editSP && (
+                  <div className="rarity-toggles">
+                    <label className="rarity-toggle">
+                      <input
+                        type="checkbox"
+                        checked={editParallel}
+                        onChange={(e) => setEditParallel(e.target.checked)}
+                      />
+                      <span className="toggle-label toggle-alt">Parallel / Alt</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              <div className="detail-edit-field">
+                <label className="detail-label">Prix</label>
+                <input
+                  type="text"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  placeholder="10-15"
+                />
+              </div>
+              <div className="detail-edit-field">
+                <label className="detail-label">Lien d'achat</label>
+                <input
+                  type="url"
+                  value={editBuyLink}
+                  onChange={(e) => setEditBuyLink(e.target.value)}
+                  placeholder="https://www.cardmarket.com/..."
+                />
+              </div>
+              <div className="detail-edit-actions">
+                <button className="btn-save" onClick={handleEditSave}>Sauvegarder</button>
+                <button className="btn-secondary" onClick={handleEditCancel}>Annuler</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="detail-row">
+                <span className="detail-label">Série</span>
+                <span className="detail-value">{card.serie}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">ID</span>
+                <span className="detail-value">{card.idcard}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Personnage</span>
+                <span className="detail-value">{card.character}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Rareté</span>
+                <span className="detail-value">
+                  <RarityBadge rarity={card.rarity} size="md" />
+                </span>
+              </div>
+              {Option.isSome(card.edition) && (
+                <div className="detail-row">
+                  <span className="detail-label">Édition</span>
+                  <span className="detail-value detail-edition">{Option.getOrElse(card.edition, () => '')}</span>
+                </div>
+              )}
+              <div className="detail-row">
+                <span className="detail-label">Prix</span>
+                <span className="detail-value">{displayPriceOrDash(card.price)}</span>
+              </div>
+              {Option.isSome(card.buyLink) && (
+                <div className="detail-row">
+                  <span className="detail-label">Achat</span>
+                  <span className="detail-value">
+                    <a
+                      className="detail-buy-link"
+                      href={Option.getOrElse(card.buyLink, () => '')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Ouvrir le lien
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </a>
+                  </span>
+                </div>
+              )}
+              <button className="btn-edit" onClick={() => setEditing(true)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Éditer
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="detail-danger">
+          {confirmDelete ? (
+            <div className="confirm-delete">
+              <span>Supprimer cette carte ?</span>
+              <button className="btn-danger" onClick={() => onDelete(card.id)}>Oui</button>
+              <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Non</button>
+            </div>
+          ) : (
+            <button className="btn-danger" onClick={() => setConfirmDelete(true)}>
+              Supprimer
             </button>
           )}
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          style={{ display: 'none' }}
-        />
-      </div>
-
-      <div className="detail-info">
-        {editing ? (
-          <>
-            <div className="detail-edit-field">
-              <label className="detail-label">Série</label>
-              <input
-                type="text"
-                value={editSerie}
-                onChange={(e) => setEditSerie(e.target.value)}
-                placeholder="OP01"
-              />
-            </div>
-            <div className="detail-edit-field">
-              <label className="detail-label">ID Carte</label>
-              <input
-                type="text"
-                value={editIdcard}
-                onChange={(e) => setEditIdcard(e.target.value)}
-                placeholder="OP01-025"
-              />
-            </div>
-            <div className="detail-edit-field">
-              <label className="detail-label">Personnage</label>
-              <input
-                type="text"
-                value={editCharacter}
-                onChange={(e) => setEditCharacter(e.target.value)}
-                placeholder="Roronoa Zoro"
-              />
-            </div>
-            <div className="detail-edit-field">
-              <label className="detail-label">Rareté</label>
-              <div className="rarity-picker">
-                <button
-                  type="button"
-                  className={`rarity-pill${editBase === null && !editSP ? ' selected' : ''}`}
-                  style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
-                  onClick={() => { setEditBase(null); setEditParallel(false); setEditSP(false); }}
-                >
-                  ?
-                </button>
-                {STANDARD_BASES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    className={`rarity-pill${editBase === r && !editSP ? ' selected' : ''}`}
-                    style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
-                    onClick={() => { setEditBase(r); setEditSP(false); }}
-                  >
-                    {r === 'L' ? 'Leader' : r}
-                  </button>
-                ))}
-              </div>
-              {editBase !== null && !editSP && (
-                <div className="rarity-toggles">
-                  <label className="rarity-toggle">
-                    <input
-                      type="checkbox"
-                      checked={editParallel}
-                      onChange={(e) => setEditParallel(e.target.checked)}
-                    />
-                    <span className="toggle-label toggle-alt">Parallel / Alt</span>
-                  </label>
-                </div>
-              )}
-              <div className="rarity-toggles">
-                <label className="rarity-toggle">
-                  <input
-                    type="checkbox"
-                    checked={editSP}
-                    onChange={(e) => { setEditSP(e.target.checked); if (e.target.checked) { setEditParallel(false); setEditBase(null); } }}
-                  />
-                  <span className="toggle-label toggle-sp">SP</span>
-                </label>
-              </div>
-            </div>
-            <div className="detail-edit-field">
-              <label className="detail-label">Prix</label>
-              <input
-                type="text"
-                value={editPrice}
-                onChange={(e) => setEditPrice(e.target.value)}
-                placeholder="10-15"
-              />
-            </div>
-            <div className="detail-edit-actions">
-              <button className="btn-save" onClick={handleEditSave}>Sauvegarder</button>
-              <button className="btn-secondary" onClick={handleEditCancel}>Annuler</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="detail-row">
-              <span className="detail-label">Série</span>
-              <span className="detail-value">{card.serie}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">ID</span>
-              <span className="detail-value">{card.idcard}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Personnage</span>
-              <span className="detail-value">{card.character}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Rareté</span>
-              <span className="detail-value">
-                <RarityBadge rarity={card.rarity} size="md" />
-              </span>
-            </div>
-            {Option.isSome(card.edition) && (
-              <div className="detail-row">
-                <span className="detail-label">Édition</span>
-                <span className="detail-value detail-edition">{Option.getOrElse(card.edition, () => '')}</span>
-              </div>
-            )}
-            <div className="detail-row">
-              <span className="detail-label">Prix</span>
-              <span className="detail-value">{displayPriceOrDash(card.price)}</span>
-            </div>
-            <button className="btn-edit" onClick={() => setEditing(true)}>
-              Éditer
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="detail-link-section">
-        <label className="detail-label">Lien d'achat</label>
-        <div className="detail-link-row">
-          <input
-            type="url"
-            placeholder="https://www.cardmarket.com/..."
-            value={buyLink}
-            onChange={(e) => setBuyLink(e.target.value)}
-            onBlur={handleLinkSave}
-          />
-          <button className="btn-secondary" onClick={handleLinkSave}>OK</button>
-        </div>
-        {Option.isSome(card.buyLink) && (
-          <a
-            className="detail-link-preview"
-            href={Option.getOrElse(card.buyLink, () => '')}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Ouvrir le lien
-          </a>
-        )}
-      </div>
-
-      <div className="detail-danger">
-        {confirmDelete ? (
-          <div className="confirm-delete">
-            <span>Supprimer cette carte ?</span>
-            <button className="btn-danger" onClick={() => onDelete(card.id)}>Oui</button>
-            <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Non</button>
-          </div>
-        ) : (
-          <button className="btn-danger" onClick={() => setConfirmDelete(true)}>
-            Supprimer
-          </button>
-        )}
       </div>
 
       {zoomed && imageUrl && (

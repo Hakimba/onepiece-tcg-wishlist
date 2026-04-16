@@ -65,8 +65,16 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
     }
 
     // ----- Data updates -----
-    case "CardsUpdated":
-      return withCards(state, action.cards)
+    case "CardsUpdated": {
+      const updated = withCards(state, action.cards)
+      if (state._tag === "AddCard") {
+        const ctx = getCtx(updated)
+        const ui = getUI(updated)
+        if (!ctx || !ui) return updated
+        return AP.Home({ ctx, ui })
+      }
+      return updated
+    }
 
     // ----- Disambiguation -----
     case "StartDisambiguation": {

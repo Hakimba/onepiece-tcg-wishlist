@@ -18,7 +18,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
-  const [baseRarity, setBaseRarity] = useState<StandardBase>('R');
+  const [baseRarity, setBaseRarity] = useState<StandardBase | null>('R');
   const [isParallel, setIsParallel] = useState(false);
   const [isSP, setIsSP] = useState(false);
   const [price, setPrice] = useState('');
@@ -90,6 +90,14 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
         <div className="form-field">
           <label>Rareté</label>
           <div className="rarity-picker">
+            <button
+              type="button"
+              className={`rarity-pill${baseRarity === null && !isSP ? ' selected' : ''}`}
+              style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
+              onClick={() => { setBaseRarity(null); setIsParallel(false); setIsSP(false); }}
+            >
+              ?
+            </button>
             {STANDARD_BASES.map((r) => (
               <button
                 key={r}
@@ -103,26 +111,27 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
                 {r === 'L' ? 'Leader' : r}
               </button>
             ))}
+            <button
+              type="button"
+              className={`rarity-pill${isSP ? ' selected' : ''}`}
+              style={{ '--pill-color': RARITY_COLORS['SP'] } as React.CSSProperties}
+              onClick={() => { setIsSP(true); setBaseRarity(null); setIsParallel(false); }}
+            >
+              SP
+            </button>
           </div>
-          <div className="rarity-toggles">
-            <label className="rarity-toggle">
-              <input
-                type="checkbox"
-                checked={isParallel}
-                onChange={(e) => setIsParallel(e.target.checked)}
-                disabled={isSP}
-              />
-              <span className="toggle-label toggle-alt">Parallel / Alt</span>
-            </label>
-            <label className="rarity-toggle">
-              <input
-                type="checkbox"
-                checked={isSP}
-                onChange={(e) => { setIsSP(e.target.checked); if (e.target.checked) setIsParallel(false); }}
-              />
-              <span className="toggle-label toggle-sp">SP</span>
-            </label>
-          </div>
+          {baseRarity !== null && !isSP && (
+            <div className="rarity-toggles">
+              <label className="rarity-toggle">
+                <input
+                  type="checkbox"
+                  checked={isParallel}
+                  onChange={(e) => setIsParallel(e.target.checked)}
+                />
+                <span className="toggle-label toggle-alt">Parallel / Alt</span>
+              </label>
+            </div>
+          )}
         </div>
         <div className="form-field">
           <label>Prix</label>

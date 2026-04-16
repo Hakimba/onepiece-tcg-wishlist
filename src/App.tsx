@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from './hooks/useAppStore';
+import { useTheme } from './hooks/useTheme';
 import { AppAction } from './state/AppAction';
 import type { ViewMode, SortPrice } from './state/AppState';
 import Header from './components/Header';
@@ -37,6 +38,8 @@ function App() {
     handleSwipe,
     handleSelectCharacter,
   } = useAppStore();
+
+  const { theme, toggleTheme } = useTheme();
 
   const detailCard = state._tag === 'CardDetail' ? filteredCards[state.index] : undefined;
   const detailCardMissing = state._tag === 'CardDetail' && !detailCard;
@@ -139,6 +142,8 @@ function App() {
           showFilters={ui.showFilters}
           onToggleFilters={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, showFilters: !u.showFilters }) }))}
           onMenuOpen={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, drawerOpen: true }) }))}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
         <SearchBar
           query={ui.searchQuery}
