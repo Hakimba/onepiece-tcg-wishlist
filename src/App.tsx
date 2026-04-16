@@ -38,6 +38,7 @@ function App() {
     ambiguous: AmbiguousCard[];
     resolved: Card[];
   } | null>(null);
+  const [addError, setAddError] = useState('');
 
   const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '' || showFavoritesOnly;
   const filteredCards = useMemo(() => {
@@ -88,8 +89,10 @@ function App() {
     if (ambiguous.length > 0) {
       setDisambiguationState({ ambiguous, resolved });
     } else {
-      await saveCards(resolved);
-      setCards(resolved);
+      // Deduplicate resolved cards
+      const deduped = resolved.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
+      await saveCards(deduped);
+      setCards(deduped);
     }
   }, [variantsIndex]);
 
@@ -99,18 +102,24 @@ function App() {
 
   const handleAdd = useCallback(async (card: Omit<Card, 'id'>) => {
     const newCard: Card = { ...card, id: makeCardId(card.idcard, card.rarity) };
-    const { resolved, ambiguous } = resolveVariants([newCard], variantsIndex);
+    const { resolved, ambiguous } = resolveVariants([newCard], variantsIndex, cards);
     if (ambiguous.length > 0) {
-      // Load current cards as the "resolved" base so disambiguation merges correctly
-      const currentCards = await loadCards();
-      setDisambiguationState({ ambiguous, resolved: currentCards });
+      setDisambiguationState({ ambiguous, resolved: cards });
       setShowAdd(false);
+      setAddError('');
+    } else if (resolved.length === 0) {
+      setAddError('Cette carte existe déjà dans la wishlist');
     } else {
-      const updated = await addCard(resolved[0]);
-      setCards(updated);
-      setShowAdd(false);
+      const { cards: updated, duplicate } = await addCard(resolved[0]);
+      if (duplicate) {
+        setAddError('Cette carte existe déjà dans la wishlist');
+      } else {
+        setCards(updated);
+        setShowAdd(false);
+        setAddError('');
+      }
     }
-  }, [variantsIndex]);
+  }, [variantsIndex, cards]);
 
   const handleUpdate = useCallback(async (card: Card, oldId?: string) => {
     const updated = await updateCard(card, oldId);
@@ -216,7 +225,7 @@ function App() {
     return (
       <>
         {drawer}
-        <AddCardForm onAdd={handleAdd} onCancel={() => setShowAdd(false)} />
+        <AddCardForm onAdd={handleAdd} onCancel={() => { setShowAdd(false); setAddError(''); }} error={addError} />
       </>
     );
   }

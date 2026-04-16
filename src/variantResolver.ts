@@ -79,10 +79,22 @@ function filterCandidates(variants: VariantEntry[], rarity: string, idcard: stri
 
 export function resolveVariants(
   cards: Card[],
-  index: VariantsIndex
+  index: VariantsIndex,
+  existingCards?: Card[]
 ): { resolved: Card[]; ambiguous: AmbiguousCard[] } {
   const resolved: Card[] = [];
   const ambiguous: AmbiguousCard[] = [];
+
+  // Build set of existing suffixes per idcard for filtering
+  const existingSuffixesByIdcard = new Map<string, Set<string>>();
+  if (existingCards) {
+    for (const c of existingCards) {
+      if (!existingSuffixesByIdcard.has(c.idcard)) {
+        existingSuffixesByIdcard.set(c.idcard, new Set());
+      }
+      existingSuffixesByIdcard.get(c.idcard)!.add(c.imageSuffix ?? '');
+    }
+  }
 
   for (const card of cards) {
     const entry = index[card.idcard];
@@ -93,18 +105,27 @@ export function resolveVariants(
       continue;
     }
 
-    const candidates = filterCandidates(entry.variants, card.rarity, card.idcard);
+    let candidates = filterCandidates(entry.variants, card.rarity, card.idcard);
 
-    if (candidates.length <= 1) {
-      // 0 or 1 match — auto-resolve, fill character if empty
+    // Remove candidates already present in the wishlist
+    const existingSuffixes = existingSuffixesByIdcard.get(card.idcard);
+    if (existingSuffixes) {
+      candidates = candidates.filter((c) => !existingSuffixes.has(c.suffix));
+    }
+
+    if (candidates.length === 0) {
+      // All variants already in wishlist — skip
+      continue;
+    }
+
+    if (candidates.length === 1) {
+      // Single match — auto-resolve, fill character if empty
       const updated = { ...card };
       if (!card.character.trim() && entry.name) {
         updated.character = entry.name;
       }
-      if (candidates.length === 1) {
-        updated.edition = candidates[0].cardSets;
-        updated.imageSuffix = candidates[0].suffix;
-      }
+      updated.edition = candidates[0].cardSets;
+      updated.imageSuffix = candidates[0].suffix;
       resolved.push(updated);
       continue;
     }

@@ -1046,6 +1046,11 @@ body {
   border-color: var(--accent);
 }
 
+.field-error {
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
 /* Rarity Picker */
 .rarity-picker {
   display: flex;
