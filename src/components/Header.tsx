@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import type { ViewMode, SortPrice } from '../types';
+import type { ViewMode, SortPrice } from '../state/AppState';
 
 interface Props {
   view: ViewMode;

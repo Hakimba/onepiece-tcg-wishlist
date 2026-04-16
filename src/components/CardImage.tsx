@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import type { Card } from '../types';
-import { resolveImageUrl } from '../imageResolver';
+import { Option } from 'effect';
+import type { Card } from '../domain/Card';
+import type { SpIndex } from '../services/ImageResolver';
+import { resolveImageUrl } from '../services/ImageResolver';
 
 interface Props {
   card: Card;
-  spIndex?: Map<string, string>;
+  spIndex?: SpIndex;
   className?: string;
   alt?: string;
 }
@@ -12,10 +14,11 @@ interface Props {
 export default function CardImage({ card, spIndex, className, alt }: Props) {
   const [error, setError] = useState(false);
 
-  const src = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex, card.imageSuffix);
+  const srcOption = resolveImageUrl(card, spIndex ?? new Map());
+  const src = Option.getOrNull(srcOption);
   const label = alt ?? `${card.idcard} ${card.character}`;
 
-  if (!src || (error && !card.image)) {
+  if (!src || (error && Option.isNone(card.image))) {
     return (
       <div className={`card-image-placeholder ${className ?? ''}`}>
         <span>{card.idcard}</span>

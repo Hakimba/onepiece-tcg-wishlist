@@ -1,7 +1,8 @@
-import { parseRarity, RARITY_COLORS } from '../rarity';
+import type { Rarity } from '../domain/Rarity';
+import { rarityColor, getBase, isParallel, isSP, isUnknown } from '../domain/Rarity';
 
 interface Props {
-  rarity: string;
+  rarity: Rarity;
   size?: 'xs' | 'sm' | 'md';
 }
 
@@ -12,10 +13,41 @@ const SIZE_MAP = {
 };
 
 export default function RarityBadge({ rarity, size = 'sm' }: Props) {
-  const parsed = parseRarity(rarity);
-  const color = RARITY_COLORS[parsed.base];
+  const color = rarityColor(rarity);
   const s = SIZE_MAP[size];
-  const isDark = parsed.base === 'SEC';
+  const base = getBase(rarity);
+  const isDark = base === 'SEC';
+
+  if (isUnknown(rarity)) {
+    return (
+      <span className="rarity-badge" style={{ gap: s.gap }}>
+        <span
+          className="rarity-base"
+          style={{
+            background: color,
+            color: '#fff',
+            fontSize: s.fontSize,
+            padding: s.padding,
+          }}
+        >
+          ?
+        </span>
+      </span>
+    );
+  }
+
+  if (isSP(rarity)) {
+    return (
+      <span className="rarity-badge" style={{ gap: s.gap }}>
+        <span
+          className="rarity-tag-sp"
+          style={{ fontSize: s.tagFont, padding: s.padding }}
+        >
+          SP
+        </span>
+      </span>
+    );
+  }
 
   return (
     <span className="rarity-badge" style={{ gap: s.gap }}>
@@ -28,22 +60,14 @@ export default function RarityBadge({ rarity, size = 'sm' }: Props) {
           padding: s.padding,
         }}
       >
-        {parsed.base === 'L' ? 'Leader' : parsed.base}
+        {base === 'L' ? 'Leader' : base}
       </span>
-      {parsed.isParallel && (
+      {isParallel(rarity) && (
         <span
           className="rarity-tag-alt"
           style={{ fontSize: s.tagFont, padding: s.padding }}
         >
           ALT
-        </span>
-      )}
-      {parsed.isSP && (
-        <span
-          className="rarity-tag-sp"
-          style={{ fontSize: s.tagFont, padding: s.padding }}
-        >
-          SP
         </span>
       )}
     </span>

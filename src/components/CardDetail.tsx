@@ -1,11 +1,24 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Card } from '../types';
-import type { BaseRarity } from '../rarity';
-import { parseRarity, buildRarityString, RARITY_COLORS } from '../rarity';
-import { makeCardId } from '../store';
+import { Option } from 'effect';
+import type { Card } from '../domain/Card';
+import { makeCardId } from '../domain/Card';
+import type { StandardBase } from '../domain/Rarity';
+import {
+  STANDARD_BASES,
+  RARITY_COLORS,
+  buildRarity,
+  getBase,
+  isParallel as rarityIsParallel,
+  isSP as rarityIsSP,
+} from '../domain/Rarity';
+import { parsePrice, displayPriceOrDash, displayPrice } from '../domain/Price';
+import type { SpIndex } from '../services/ImageResolver';
+import { resolveImageUrl } from '../services/ImageResolver';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import RarityBadge from './RarityBadge';
 import CardImage from './CardImage';
-import { resolveImageUrl } from '../imageResolver';
+
+const EMPTY_SP_INDEX: SpIndex = new Map();
 
 interface Props {
   card: Card;
@@ -16,10 +29,8 @@ interface Props {
   onSwipe: (direction: 'left' | 'right') => void;
   hasPrev: boolean;
   hasNext: boolean;
-  spIndex?: Map<string, string>;
+  spIndex?: SpIndex;
 }
-
-const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
 
 export default function CardDetail({
   card,
@@ -32,44 +43,41 @@ export default function CardDetail({
   hasNext,
   spIndex,
 }: Props) {
-  const [buyLink, setBuyLink] = useState(card.buyLink ?? '');
+  const [buyLink, setBuyLink] = useState(Option.getOrElse(card.buyLink, () => ''));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [zoomed, setZoomed] = useState(false);
 
   // Edit fields
   const [editSerie, setEditSerie] = useState(card.serie);
-  const [editIdcard, setEditIdcard] = useState(card.idcard);
+  const [editIdcard, setEditIdcard] = useState(card.idcard as string);
   const [editCharacter, setEditCharacter] = useState(card.character);
-  const [editPrice, setEditPrice] = useState(card.price);
-  const parsed = parseRarity(card.rarity);
-  const [editBase, setEditBase] = useState<BaseRarity>(parsed.base);
-  const [editParallel, setEditParallel] = useState(parsed.isParallel);
-  const [editSP, setEditSP] = useState(parsed.isSP);
+  const [editPrice, setEditPrice] = useState(displayPrice(card.price));
+  const base = getBase(card.rarity);
+  const [editBase, setEditBase] = useState<StandardBase | null>(base);
+  const [editParallel, setEditParallel] = useState(rarityIsParallel(card.rarity));
+  const [editSP, setEditSP] = useState(rarityIsSP(card.rarity));
 
   const touchStart = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useBodyScrollLock(zoomed);
+
   // Reset state when card changes (swipe)
   useEffect(() => {
-    setBuyLink(card.buyLink ?? '');
+    setBuyLink(Option.getOrElse(card.buyLink, () => ''));
     setConfirmDelete(false);
     setEditing(false);
     setZoomed(false);
     setEditSerie(card.serie);
-    setEditIdcard(card.idcard);
+    setEditIdcard(card.idcard as string);
     setEditCharacter(card.character);
-    setEditPrice(card.price);
-    const p = parseRarity(card.rarity);
-    setEditBase(p.base);
-    setEditParallel(p.isParallel);
-    setEditSP(p.isSP);
+    setEditPrice(displayPrice(card.price));
+    const b = getBase(card.rarity);
+    setEditBase(b);
+    setEditParallel(rarityIsParallel(card.rarity));
+    setEditSP(rarityIsSP(card.rarity));
   }, [card.id]);
-
-  useEffect(() => {
-    document.body.style.overflow = zoomed ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [zoomed]);
 
   useEffect(() => {
     if (!zoomed) return;
@@ -83,44 +91,44 @@ export default function CardDetail({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      onUpdate({ ...card, image: reader.result as string });
+      onUpdate({ ...card, image: Option.some(reader.result as string) });
     };
     reader.readAsDataURL(file);
   };
 
   const handleLinkSave = () => {
-    onUpdate({ ...card, buyLink: buyLink.trim() || undefined });
+    onUpdate({ ...card, buyLink: buyLink.trim() ? Option.some(buyLink.trim()) : Option.none() });
   };
 
   const handleEditSave = () => {
-    const newRarity = buildRarityString(editBase, editParallel, editSP);
+    const newRarity = buildRarity(editBase, editParallel, editSP);
     const newIdcard = editIdcard.trim().toUpperCase();
     const newId = makeCardId(newIdcard, newRarity);
-    const oldId = card.id !== newId ? card.id : undefined;
+    const oldId = card.id !== newId ? card.id as string : undefined;
     onUpdate(
       {
         ...card,
         serie: editSerie.trim(),
-        idcard: newIdcard,
+        idcard: newIdcard as any,
         character: editCharacter.trim(),
         rarity: newRarity,
-        price: editPrice.trim(),
+        price: parsePrice(editPrice.trim()),
         id: newId,
       },
-      oldId
+      oldId,
     );
     setEditing(false);
   };
 
   const handleEditCancel = () => {
     setEditSerie(card.serie);
-    setEditIdcard(card.idcard);
+    setEditIdcard(card.idcard as string);
     setEditCharacter(card.character);
-    setEditPrice(card.price);
-    const p = parseRarity(card.rarity);
-    setEditBase(p.base);
-    setEditParallel(p.isParallel);
-    setEditSP(p.isSP);
+    setEditPrice(displayPrice(card.price));
+    const b = getBase(card.rarity);
+    setEditBase(b);
+    setEditParallel(rarityIsParallel(card.rarity));
+    setEditSP(rarityIsSP(card.rarity));
     setEditing(false);
   };
 
@@ -137,10 +145,11 @@ export default function CardDetail({
       }
       touchStart.current = null;
     },
-    [onSwipe]
+    [onSwipe],
   );
 
-  const imageUrl = card.image || resolveImageUrl(card.idcard, card.rarity, spIndex, card.imageSuffix);
+  const imageUrlOpt = resolveImageUrl(card, spIndex ?? EMPTY_SP_INDEX);
+  const imageUrl = Option.getOrNull(imageUrlOpt);
 
   return (
     <div
@@ -178,10 +187,10 @@ export default function CardDetail({
           <button className="btn-upload" onClick={() => fileRef.current?.click()}>
             Remplacer l'image
           </button>
-          {card.image && (
+          {Option.isSome(card.image) && (
             <button
               className="btn-secondary"
-              onClick={() => onUpdate({ ...card, image: undefined })}
+              onClick={() => onUpdate({ ...card, image: Option.none() })}
             >
               Réinitialiser
             </button>
@@ -229,32 +238,44 @@ export default function CardDetail({
             <div className="detail-edit-field">
               <label className="detail-label">Rareté</label>
               <div className="rarity-picker">
-                {RARITIES.map((r) => (
+                <button
+                  type="button"
+                  className={`rarity-pill${editBase === null && !editSP ? ' selected' : ''}`}
+                  style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
+                  onClick={() => { setEditBase(null); setEditParallel(false); setEditSP(false); }}
+                >
+                  ?
+                </button>
+                {STANDARD_BASES.map((r) => (
                   <button
                     key={r}
                     type="button"
-                    className={`rarity-pill${editBase === r ? ' selected' : ''}`}
+                    className={`rarity-pill${editBase === r && !editSP ? ' selected' : ''}`}
                     style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
-                    onClick={() => setEditBase(r)}
+                    onClick={() => { setEditBase(r); setEditSP(false); }}
                   >
                     {r === 'L' ? 'Leader' : r}
                   </button>
                 ))}
               </div>
+              {editBase !== null && !editSP && (
+                <div className="rarity-toggles">
+                  <label className="rarity-toggle">
+                    <input
+                      type="checkbox"
+                      checked={editParallel}
+                      onChange={(e) => setEditParallel(e.target.checked)}
+                    />
+                    <span className="toggle-label toggle-alt">Parallel / Alt</span>
+                  </label>
+                </div>
+              )}
               <div className="rarity-toggles">
                 <label className="rarity-toggle">
                   <input
                     type="checkbox"
-                    checked={editParallel}
-                    onChange={(e) => setEditParallel(e.target.checked)}
-                  />
-                  <span className="toggle-label toggle-alt">Parallel / Alt</span>
-                </label>
-                <label className="rarity-toggle">
-                  <input
-                    type="checkbox"
                     checked={editSP}
-                    onChange={(e) => setEditSP(e.target.checked)}
+                    onChange={(e) => { setEditSP(e.target.checked); if (e.target.checked) { setEditParallel(false); setEditBase(null); } }}
                   />
                   <span className="toggle-label toggle-sp">SP</span>
                 </label>
@@ -294,15 +315,15 @@ export default function CardDetail({
                 <RarityBadge rarity={card.rarity} size="md" />
               </span>
             </div>
-            {card.edition && (
+            {Option.isSome(card.edition) && (
               <div className="detail-row">
                 <span className="detail-label">Édition</span>
-                <span className="detail-value detail-edition">{card.edition}</span>
+                <span className="detail-value detail-edition">{Option.getOrElse(card.edition, () => '')}</span>
               </div>
             )}
             <div className="detail-row">
               <span className="detail-label">Prix</span>
-              <span className="detail-value">{card.price ? (card.price.includes('€') ? card.price : `${card.price}€`) : '—'}</span>
+              <span className="detail-value">{displayPriceOrDash(card.price)}</span>
             </div>
             <button className="btn-edit" onClick={() => setEditing(true)}>
               Éditer
@@ -323,10 +344,10 @@ export default function CardDetail({
           />
           <button className="btn-secondary" onClick={handleLinkSave}>OK</button>
         </div>
-        {card.buyLink && (
+        {Option.isSome(card.buyLink) && (
           <a
             className="detail-link-preview"
-            href={card.buyLink}
+            href={Option.getOrElse(card.buyLink, () => '')}
             target="_blank"
             rel="noopener noreferrer"
           >

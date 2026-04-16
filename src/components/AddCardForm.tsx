@@ -1,22 +1,24 @@
 import { useState } from 'react';
-import type { Card } from '../types';
-import type { BaseRarity } from '../rarity';
-import { buildRarityString, RARITY_COLORS } from '../rarity';
+import { Option } from 'effect';
+import type { Card } from '../domain/Card';
+import { makeCard } from '../domain/Card';
+import type { StandardBase } from '../domain/Rarity';
+import { STANDARD_BASES, RARITY_COLORS, buildRarity } from '../domain/Rarity';
+import { parsePrice } from '../domain/Price';
 
 interface Props {
-  onAdd: (card: Omit<Card, 'id'>) => void;
+  onAdd: (card: Card) => void;
   onCancel: () => void;
-  error?: string;
+  error: Option.Option<string>;
 }
 
-const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
 const VALID_ID_REGEX = /^[A-Z]{2,4}\d{1,2}-\d{3}[A-Z]?$/;
 
 export default function AddCardForm({ onAdd, onCancel, error }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
-  const [baseRarity, setBaseRarity] = useState<BaseRarity>('R');
+  const [baseRarity, setBaseRarity] = useState<StandardBase>('R');
   const [isParallel, setIsParallel] = useState(false);
   const [isSP, setIsSP] = useState(false);
   const [price, setPrice] = useState('');
@@ -36,14 +38,18 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
       return;
     }
     setIdError('');
-    onAdd({
-      serie: serie.trim() || idPrefix,
-      idcard: id,
-      character: character.trim(),
-      rarity: buildRarityString(baseRarity, isParallel, isSP),
-      price: price.trim(),
-    });
+    onAdd(
+      makeCard({
+        serie: serie.trim() || idPrefix,
+        idcard: id,
+        character: character.trim(),
+        rarity: buildRarity(baseRarity, isParallel, isSP),
+        price: parsePrice(price.trim()),
+      }),
+    );
   };
+
+  const displayError = idError || Option.getOrElse(error, () => '');
 
   return (
     <div className="form-screen">
@@ -70,7 +76,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
             onChange={(e) => { setIdcard(e.target.value); setIdError(''); }}
             required
           />
-          {(idError || error) && <span className="field-error">{idError || error}</span>}
+          {displayError && <span className="field-error">{displayError}</span>}
         </div>
         <div className="form-field">
           <label>Personnage</label>
@@ -84,15 +90,15 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
         <div className="form-field">
           <label>Rareté</label>
           <div className="rarity-picker">
-            {RARITIES.map((r) => (
+            {STANDARD_BASES.map((r) => (
               <button
                 key={r}
                 type="button"
-                className={`rarity-pill${baseRarity === r ? ' selected' : ''}`}
+                className={`rarity-pill${baseRarity === r && !isSP ? ' selected' : ''}`}
                 style={{
                   '--pill-color': RARITY_COLORS[r],
                 } as React.CSSProperties}
-                onClick={() => setBaseRarity(r)}
+                onClick={() => { setBaseRarity(r); setIsSP(false); }}
               >
                 {r === 'L' ? 'Leader' : r}
               </button>
@@ -104,6 +110,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
                 type="checkbox"
                 checked={isParallel}
                 onChange={(e) => setIsParallel(e.target.checked)}
+                disabled={isSP}
               />
               <span className="toggle-label toggle-alt">Parallel / Alt</span>
             </label>
@@ -111,7 +118,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
               <input
                 type="checkbox"
                 checked={isSP}
-                onChange={(e) => setIsSP(e.target.checked)}
+                onChange={(e) => { setIsSP(e.target.checked); if (e.target.checked) setIsParallel(false); }}
               />
               <span className="toggle-label toggle-sp">SP</span>
             </label>

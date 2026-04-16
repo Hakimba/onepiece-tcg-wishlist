@@ -1,45 +1,36 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Card } from '../types';
-import type { AmbiguousCard } from '../variantResolver';
-import { variantImageUrl } from '../variantResolver';
-import { makeCardId } from '../store';
+import { useState, useRef, useCallback } from 'react';
+import { Option } from 'effect';
+import type { Card } from '../domain/Card';
+import { makeCardId } from '../domain/Card';
+import type { AmbiguousCard, DisambiguationMode } from '../domain/Disambiguation';
+import { isMultiSelect, toggleChoice } from '../domain/Disambiguation';
+import { fromDotgg, Unknown } from '../domain/Rarity';
+import { variantImageUrl } from '../services/ImageResolver';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import RarityBadge from './RarityBadge';
 
 interface Props {
-  ambiguous: AmbiguousCard[];
-  resolved: Card[];
-  onFinish: (cards: Card[]) => void;
+  ambiguous: ReadonlyArray<AmbiguousCard>;
+  resolved: ReadonlyArray<Card>;
+  mode: DisambiguationMode;
+  onFinish: (cards: ReadonlyArray<Card>) => void;
   onCancel: () => void;
 }
 
-function dotggRarityToApp(dotggRarity: string, suffix: string): string {
-  // Map dotgg rarity back to our app format
-  if (dotggRarity === 'SP CARD') return `SP ${dotggRarity}`;
-  if (dotggRarity === 'LR') return 'Leader';
-  // If has suffix → it's a parallel
-  if (suffix !== '') return `${dotggRarity} Parallel`;
-  return dotggRarity;
-}
-
-export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onCancel }: Props) {
-  const [items, setItems] = useState<AmbiguousCard[]>(ambiguous);
+export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinish, onCancel }: Props) {
+  const [items, setItems] = useState<ReadonlyArray<AmbiguousCard>>(ambiguous);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [carouselIndex, setCarouselIndex] = useState<number | null>(null);
   const touchStart = useRef<number | null>(null);
 
-  const resolvedCount = items.filter((i) => i.chosenIndex !== null).length;
+  const resolvedCount = items.filter((i) => i.chosenIndices.length > 0).length;
+  const totalChosenCards = items.reduce((sum, i) => sum + i.chosenIndices.length, 0);
 
-  // Lock body scroll when carousel is open
-  useEffect(() => {
-    document.body.style.overflow = carouselIndex !== null ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [carouselIndex]);
+  useBodyScrollLock(carouselIndex !== null);
 
   const handleChoose = (itemIdx: number, candidateIdx: number) => {
     setItems((prev) =>
-      prev.map((item, i) =>
-        i === itemIdx ? { ...item, chosenIndex: candidateIdx } : item
-      )
+      prev.map((item, i) => i === itemIdx ? toggleChoice(item, candidateIdx) : item),
     );
   };
 
@@ -68,26 +59,29 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
 
   const handleFinish = () => {
     const disambiguated: Card[] = items
-      .filter((item) => item.chosenIndex !== null)
-      .map((item) => {
-        const chosen = item.candidates[item.chosenIndex!];
-        const newRarity = dotggRarityToApp(chosen.rarity, chosen.suffix);
-        const newId = makeCardId(item.card.idcard, newRarity);
-        return {
-          ...item.card,
-          id: newId,
-          rarity: newRarity,
-          character: item.canonicalName || item.card.character,
-          imageSuffix: chosen.suffix,
-          edition: chosen.cardSets,
-        };
-      });
-    onFinish([...resolved, ...disambiguated]);
+      .filter((item) => item.chosenIndices.length > 0)
+      .flatMap((item) =>
+        item.chosenIndices.map((ci) => {
+          const chosen = item.candidates[ci];
+          const newRarity = fromDotgg(chosen.rarity, chosen.suffix);
+          const newId = makeCardId(item.card.idcard, newRarity);
+          return {
+            ...item.card,
+            id: newId,
+            rarity: newRarity,
+            character: item.canonicalName || item.card.character,
+            imageSuffix: Option.some(chosen.suffix),
+            edition: Option.some(chosen.cardSets),
+          };
+        }),
+      );
+    onFinish(mode === 'import' ? [...resolved, ...disambiguated] : disambiguated);
   };
 
   // Picker view for a single ambiguous card
   if (activeIndex !== null && items[activeIndex]) {
     const item = items[activeIndex];
+    const isSelected = (ci: number) => item.chosenIndices.includes(ci);
     return (
       <div className="disambiguation-screen">
         <div className="disambiguation-header">
@@ -99,11 +93,24 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
         {item.canonicalName && (
           <div className="disambiguation-card-name">{item.canonicalName}</div>
         )}
+        {(item.reason._tag === 'RarityMismatch' || item.reason._tag === 'SerieMismatch') && (
+          <div className="disambiguation-warning">
+            {item.reason._tag === 'RarityMismatch'
+              ? "La rareté indiquée n'existe pas pour cette carte."
+              : "La série indiquée n'a pas été trouvée."}
+            {' '}Voici les variantes disponibles.
+          </div>
+        )}
+        {isMultiSelect(item.reason) && (
+          <div className="disambiguation-hint-multi">
+            Tu peux sélectionner plusieurs variantes.
+          </div>
+        )}
         <div className="variant-picker">
           {item.candidates.map((c, ci) => (
             <div
               key={c.suffix}
-              className={`variant-card ${item.chosenIndex === ci ? 'selected' : ''}`}
+              className={`variant-card ${isSelected(ci) ? 'selected' : ''}`}
             >
               <div className="variant-image-tap" onClick={() => setCarouselIndex(ci)}>
                 <img
@@ -115,12 +122,12 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
               </div>
               <div className="variant-meta">
                 <button
-                  className={`variant-select-btn ${item.chosenIndex === ci ? 'selected' : ''}`}
+                  className={`variant-select-btn ${isSelected(ci) ? 'selected' : ''}`}
                   onClick={() => handleChoose(activeIndex, ci)}
                 >
-                  {item.chosenIndex === ci ? '✓ Sélectionné' : 'Choisir'}
+                  {isSelected(ci) ? '\u2713 Sélectionné' : 'Choisir'}
                 </button>
-                <RarityBadge rarity={dotggRarityToApp(c.rarity, c.suffix)} size="xs" />
+                <RarityBadge rarity={fromDotgg(c.rarity, c.suffix)} size="xs" />
                 <span className="variant-edition">{c.cardSets}</span>
               </div>
             </div>
@@ -129,9 +136,9 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
         <button
           className="btn-add btn-submit"
           onClick={() => { setActiveIndex(null); setCarouselIndex(null); }}
-          disabled={item.chosenIndex === null}
+          disabled={item.chosenIndices.length === 0}
         >
-          Confirmer
+          Confirmer{item.chosenIndices.length > 1 ? ` (${item.chosenIndices.length})` : ''}
         </button>
 
         {carouselIndex !== null && (
@@ -163,14 +170,14 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
                   className="variant-carousel-image"
                 />
                 <div className="variant-carousel-meta">
-                  <RarityBadge rarity={dotggRarityToApp(item.candidates[carouselIndex].rarity, item.candidates[carouselIndex].suffix)} size="md" />
+                  <RarityBadge rarity={fromDotgg(item.candidates[carouselIndex].rarity, item.candidates[carouselIndex].suffix)} size="md" />
                   <span className="variant-carousel-edition">{item.candidates[carouselIndex].cardSets}</span>
                 </div>
                 <button
-                  className={`variant-carousel-select ${item.chosenIndex === carouselIndex ? 'selected' : ''}`}
+                  className={`variant-carousel-select ${isSelected(carouselIndex) ? 'selected' : ''}`}
                   onClick={() => handleChoose(activeIndex, carouselIndex)}
                 >
-                  {item.chosenIndex === carouselIndex ? '✓ Sélectionné' : 'Choisir cette variante'}
+                  {isSelected(carouselIndex) ? '\u2713 Sélectionné' : 'Choisir cette variante'}
                 </button>
               </div>
               <button
@@ -204,39 +211,76 @@ export default function DisambiguationQueue({ ambiguous, resolved, onFinish, onC
         <h2>Désambiguïsation</h2>
         <span className="badge">{resolvedCount}/{items.length}</span>
       </div>
-      <p className="disambiguation-hint">
-        <strong>{resolved.length} carte{resolved.length > 1 ? 's' : ''}</strong> {resolved.length > 1 ? 'seront importées' : 'sera importée'} automatiquement.<br />
-        <strong>{items.length} carte{items.length > 1 ? 's' : ''}</strong> {items.length > 1 ? 'ont' : 'a'} plusieurs variantes — choisis la bonne image.
-      </p>
+      {mode === 'import' && resolved.length > 0 && (
+        <p className="disambiguation-hint">
+          <strong>{resolved.length} carte{resolved.length > 1 ? 's' : ''}</strong> {resolved.length > 1 ? 'seront importées' : 'sera importée'} automatiquement.
+        </p>
+      )}
       <div className="disambiguation-list">
-        {items.map((item, i) => (
-          <button
-            key={item.card.idcard + i}
-            className={`disambiguation-entry ${item.chosenIndex !== null ? 'resolved' : ''}`}
-            onClick={() => setActiveIndex(i)}
-          >
-            <div className="disambiguation-entry-info">
-              <span className="disambiguation-entry-id">{item.card.idcard}</span>
-              <span className="disambiguation-entry-name">
-                {item.card.character || item.canonicalName}
-              </span>
-              <RarityBadge rarity={item.card.rarity || '?'} size="xs" />
+        {(() => {
+          const mismatch: { item: AmbiguousCard; i: number }[] = [];
+          const unknown: { item: AmbiguousCard; i: number }[] = [];
+          const ambig: { item: AmbiguousCard; i: number }[] = [];
+          items.forEach((item, i) => {
+            const tag = item.reason._tag;
+            if (tag === 'RarityMismatch' || tag === 'SerieMismatch') mismatch.push({ item, i });
+            else if (tag === 'UnspecifiedRarity') unknown.push({ item, i });
+            else if (tag === 'MultipleVariants') ambig.push({ item, i });
+          });
+          const sections: { label: string; entries: { item: AmbiguousCard; i: number }[] }[] = [];
+          if (mismatch.length > 0) sections.push({ label: 'Rareté ou série inexistante pour cette carte', entries: mismatch });
+          if (ambig.length > 0) sections.push({ label: 'Plusieurs variantes possibles', entries: ambig });
+          if (unknown.length > 0) sections.push({ label: 'Toutes les variantes (rareté non précisée)', entries: unknown });
+
+          return sections.map((section) => (
+            <div key={section.label}>
+              <div className="disambiguation-section-label">{section.label}</div>
+              {section.entries.map(({ item, i }) => {
+                const displayRar = item.reason._tag === 'RarityMismatch'
+                  ? Unknown()
+                  : item.card.rarity;
+                return (
+                  <button
+                    key={item.card.idcard + String(i)}
+                    className={`disambiguation-entry ${item.chosenIndices.length > 0 ? 'resolved' : ''}`}
+                    onClick={() => setActiveIndex(i)}
+                  >
+                    <div className="disambiguation-entry-info">
+                      <span className="disambiguation-entry-id">{item.card.idcard}</span>
+                      <span className="disambiguation-entry-name">
+                        {item.card.character || item.canonicalName}
+                      </span>
+                      <RarityBadge rarity={displayRar} size="xs" />
+                    </div>
+                    <div className="disambiguation-entry-right">
+                      <span className="disambiguation-entry-count">
+                        {isMultiSelect(item.reason) && item.chosenIndices.length > 0
+                          ? `${item.chosenIndices.length}/${item.candidates.length}`
+                          : `${item.candidates.length} variantes`
+                        }
+                      </span>
+                      {item.chosenIndices.length > 0 && (
+                        <svg className="disambiguation-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <div className="disambiguation-entry-right">
-              <span className="disambiguation-entry-count">
-                {item.candidates.length} variantes
-              </span>
-              {item.chosenIndex !== null && (
-                <svg className="disambiguation-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </div>
-          </button>
-        ))}
+          ));
+        })()}
       </div>
-      <button className="btn-add btn-submit" onClick={handleFinish}>
-        Importer {resolved.length + resolvedCount} carte{resolved.length + resolvedCount > 1 ? 's' : ''}
+      <button
+        className="btn-add btn-submit"
+        onClick={handleFinish}
+        disabled={mode === 'import' ? (resolved.length + totalChosenCards === 0) : totalChosenCards === 0}
+      >
+        {mode === 'import'
+          ? `Importer ${resolved.length + totalChosenCards} carte${resolved.length + totalChosenCards > 1 ? 's' : ''}`
+          : `Ajouter ${totalChosenCards} carte${totalChosenCards > 1 ? 's' : ''}`
+        }
       </button>
     </div>
   );

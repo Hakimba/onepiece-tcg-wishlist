@@ -1,35 +1,40 @@
-import type { FilterState } from '../types';
-import type { BaseRarity } from '../rarity';
-import { RARITY_COLORS } from '../rarity';
-import { defaultFilters } from '../filters';
+import { Option } from 'effect';
+import type { FilterState, TriState } from '../domain/Filter';
+import { defaultFilters, cycleTriState } from '../domain/Filter';
+import type { StandardBase } from '../domain/Rarity';
+import { STANDARD_BASES, RARITY_COLORS } from '../domain/Rarity';
 
 interface Props {
   filters: FilterState;
   onChange: (f: FilterState) => void;
-  allSeries: string[];
+  allSeries: ReadonlyArray<string>;
 }
 
-const BASES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
-const BASE_LABELS: Record<BaseRarity, string> = {
+const BASE_LABELS: Record<StandardBase, string> = {
   C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader',
 };
 
 function TriToggle({ label, value, onChange, activeColor }: {
   label: string;
-  value: boolean | null;
-  onChange: (v: boolean | null) => void;
+  value: TriState;
+  onChange: (v: TriState) => void;
   activeColor: string;
 }) {
-  const next = value === null ? true : value === true ? false : null;
   return (
     <button
-      className={`tri-toggle ${value === null ? '' : value ? 'on' : 'off'}`}
-      style={value === true ? { borderColor: activeColor, color: activeColor } : value === false ? { borderColor: 'var(--danger)', color: 'var(--danger)' } : undefined}
-      onClick={() => onChange(next)}
+      className={`tri-toggle ${value._tag === 'Off' ? '' : value._tag === 'Include' ? 'on' : 'off'}`}
+      style={
+        value._tag === 'Include'
+          ? { borderColor: activeColor, color: activeColor }
+          : value._tag === 'Exclude'
+            ? { borderColor: 'var(--danger)', color: 'var(--danger)' }
+            : undefined
+      }
+      onClick={() => onChange(cycleTriState(value))}
     >
       {label}
-      {value === true && ' ✓'}
-      {value === false && ' ✗'}
+      {value._tag === 'Include' && ' \u2713'}
+      {value._tag === 'Exclude' && ' \u2717'}
     </button>
   );
 }
@@ -42,7 +47,7 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
     onChange({ ...filters, series });
   };
 
-  const toggleBase = (b: string) => {
+  const toggleBase = (b: StandardBase) => {
     const rarityBases = filters.rarityBases.includes(b)
       ? filters.rarityBases.filter((x) => x !== b)
       : [...filters.rarityBases, b];
@@ -69,7 +74,7 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
       <div className="filter-section">
         <label className="filter-label">Rareté</label>
         <div className="filter-pills">
-          {BASES.map((b) => (
+          {STANDARD_BASES.map((b) => (
             <button
               key={b}
               className={`filter-pill ${filters.rarityBases.includes(b) ? 'selected' : ''}`}
@@ -85,8 +90,8 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
       <div className="filter-section">
         <label className="filter-label">Modificateurs</label>
         <div className="filter-pills">
-          <TriToggle label="Parallel" value={filters.rarityParallel} onChange={(v) => onChange({ ...filters, rarityParallel: v })} activeColor="var(--gold)" />
-          <TriToggle label="SP" value={filters.raritySP} onChange={(v) => onChange({ ...filters, raritySP: v })} activeColor="var(--green)" />
+          <TriToggle label="Parallel" value={filters.parallel} onChange={(v) => onChange({ ...filters, parallel: v })} activeColor="var(--gold)" />
+          <TriToggle label="SP" value={filters.sp} onChange={(v) => onChange({ ...filters, sp: v })} activeColor="var(--green)" />
         </div>
       </div>
 
@@ -97,8 +102,11 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
             type="number"
             className="filter-price-input"
             placeholder="Min"
-            value={filters.priceMin}
-            onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
+            value={Option.match(filters.priceMin, { onNone: () => '', onSome: (n) => String(n) })}
+            onChange={(e) => onChange({
+              ...filters,
+              priceMin: e.target.value ? Option.some(parseFloat(e.target.value)) : Option.none(),
+            })}
             min="0"
             step="0.01"
           />
@@ -107,8 +115,11 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
             type="number"
             className="filter-price-input"
             placeholder="Max"
-            value={filters.priceMax}
-            onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
+            value={Option.match(filters.priceMax, { onNone: () => '', onSome: (n) => String(n) })}
+            onChange={(e) => onChange({
+              ...filters,
+              priceMax: e.target.value ? Option.some(parseFloat(e.target.value)) : Option.none(),
+            })}
             min="0"
             step="0.01"
           />
