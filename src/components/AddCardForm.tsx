@@ -6,11 +6,13 @@ import { buildRarityString, RARITY_COLORS } from '../rarity';
 interface Props {
   onAdd: (card: Omit<Card, 'id'>) => void;
   onCancel: () => void;
+  error?: string;
 }
 
 const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
+const VALID_ID_REGEX = /^[A-Z]{2,4}\d{1,2}-\d{3}[A-Z]?$/;
 
-export default function AddCardForm({ onAdd, onCancel }: Props) {
+export default function AddCardForm({ onAdd, onCancel, error }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
@@ -18,13 +20,25 @@ export default function AddCardForm({ onAdd, onCancel }: Props) {
   const [isParallel, setIsParallel] = useState(false);
   const [isSP, setIsSP] = useState(false);
   const [price, setPrice] = useState('');
+  const [idError, setIdError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!idcard.trim()) return;
+    const id = idcard.trim().toUpperCase();
+    if (!id) { setIdError('ID carte requis'); return; }
+    if (!VALID_ID_REGEX.test(id)) {
+      setIdError('Format invalide (ex: OP01-013)');
+      return;
+    }
+    const idPrefix = id.match(/^([A-Z]{2,4}\d{1,2})/)?.[1] ?? '';
+    if (serie.trim() && idPrefix !== serie.trim().toUpperCase()) {
+      setIdError(`Série incohérente avec l'ID (attendu: ${idPrefix})`);
+      return;
+    }
+    setIdError('');
     onAdd({
-      serie: serie.trim(),
-      idcard: idcard.trim().toUpperCase(),
+      serie: serie.trim() || idPrefix,
+      idcard: id,
       character: character.trim(),
       rarity: buildRarityString(baseRarity, isParallel, isSP),
       price: price.trim(),
@@ -53,9 +67,10 @@ export default function AddCardForm({ onAdd, onCancel }: Props) {
             type="text"
             placeholder="OP01-025"
             value={idcard}
-            onChange={(e) => setIdcard(e.target.value)}
+            onChange={(e) => { setIdcard(e.target.value); setIdError(''); }}
             required
           />
+          {(idError || error) && <span className="field-error">{idError || error}</span>}
         </div>
         <div className="form-field">
           <label>Personnage</label>

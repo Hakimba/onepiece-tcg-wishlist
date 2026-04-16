@@ -12,11 +12,14 @@ export async function saveCards(cards: Card[]): Promise<void> {
   await set(CARDS_KEY, cards);
 }
 
-export async function addCard(card: Card): Promise<Card[]> {
+export async function addCard(card: Card): Promise<{ cards: Card[]; duplicate: boolean }> {
   const cards = await loadCards();
+  if (cards.some((c) => c.id === card.id)) {
+    return { cards, duplicate: true };
+  }
   cards.push(card);
   await saveCards(cards);
-  return cards;
+  return { cards, duplicate: false };
 }
 
 export async function updateCard(updated: Card, oldId?: string): Promise<Card[]> {
