@@ -1,31 +1,8 @@
-import { Data, Option } from "effect"
+import { Option } from "effect"
 import type { Card } from "./Card"
 import * as R from "./Rarity"
 import type { StandardBase } from "./Rarity"
 import * as P from "./Price"
-
-// ---------------------------------------------------------------------------
-// TriState — replaces boolean | null
-//
-//   OCaml equivalent:
-//     type tri_state = Off | Include | Exclude
-// ---------------------------------------------------------------------------
-
-export type TriState = Data.TaggedEnum<{
-  Off: {}
-  Include: {}
-  Exclude: {}
-}>
-
-export const TriState = Data.taggedEnum<TriState>()
-export const { Off, Include, Exclude } = TriState
-
-/** Cycle: Off -> Include -> Exclude -> Off */
-export const cycleTriState: (t: TriState) => TriState = TriState.$match({
-  Off: () => Include(),
-  Include: () => Exclude(),
-  Exclude: () => Off(),
-})
 
 // ---------------------------------------------------------------------------
 // FilterState
@@ -33,9 +10,8 @@ export const cycleTriState: (t: TriState) => TriState = TriState.$match({
 
 export interface FilterState {
   readonly series: ReadonlyArray<string>
-  readonly rarityBases: ReadonlyArray<StandardBase>
-  readonly parallel: TriState
-  readonly sp: TriState
+  readonly rarityBases: ReadonlyArray<StandardBase | "SP">
+  readonly parallel: boolean
   readonly priceMin: Option.Option<number>
   readonly priceMax: Option.Option<number>
 }
@@ -43,8 +19,7 @@ export interface FilterState {
 export const defaultFilters: FilterState = {
   series: [],
   rarityBases: [],
-  parallel: Off(),
-  sp: Off(),
+  parallel: false,
   priceMin: Option.none(),
   priceMax: Option.none(),
 }
@@ -56,25 +31,15 @@ export const defaultFilters: FilterState = {
 const bySeries = (series: ReadonlyArray<string>) => (card: Card): boolean =>
   series.length === 0 || series.includes(card.serie)
 
-const byRarityBases = (bases: ReadonlyArray<StandardBase>) => (card: Card): boolean => {
+const byRarityBases = (bases: ReadonlyArray<StandardBase | "SP">) => (card: Card): boolean => {
   if (bases.length === 0) return true
+  if (R.isSP(card.rarity)) return (bases as readonly string[]).includes("SP")
   const base = R.getBase(card.rarity)
   return base !== null && (bases as readonly string[]).includes(base)
 }
 
-const byParallel = (tri: TriState) => (card: Card): boolean =>
-  TriState.$match({
-    Off: () => true,
-    Include: () => R.isParallel(card.rarity),
-    Exclude: () => !R.isParallel(card.rarity),
-  })(tri)
-
-const bySP = (tri: TriState) => (card: Card): boolean =>
-  TriState.$match({
-    Off: () => true,
-    Include: () => R.isSP(card.rarity),
-    Exclude: () => !R.isSP(card.rarity),
-  })(tri)
+const byParallel = (on: boolean) => (card: Card): boolean =>
+  !on || R.isParallel(card.rarity)
 
 const byPrice = (min: Option.Option<number>, max: Option.Option<number>) => (card: Card): boolean => {
   if (Option.isNone(min) && Option.isNone(max)) return true
@@ -106,7 +71,6 @@ export const toPredicate = (
     bySeries(filters.series),
     byRarityBases(filters.rarityBases),
     byParallel(filters.parallel),
-    bySP(filters.sp),
     byPrice(filters.priceMin, filters.priceMax),
     bySearch(searchQuery),
     byFavorite(showFavoritesOnly),
@@ -121,8 +85,7 @@ export const toPredicate = (
 export const hasActiveFilters = (f: FilterState, searchQuery: string, showFavoritesOnly: boolean): boolean =>
   f.series.length > 0 ||
   f.rarityBases.length > 0 ||
-  f.parallel._tag !== "Off" ||
-  f.sp._tag !== "Off" ||
+  f.parallel ||
   Option.isSome(f.priceMin) ||
   Option.isSome(f.priceMax) ||
   searchQuery.trim() !== "" ||

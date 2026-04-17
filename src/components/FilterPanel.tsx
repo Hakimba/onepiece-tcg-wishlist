@@ -1,6 +1,6 @@
 import { Option } from 'effect';
-import type { FilterState, TriState } from '../domain/Filter';
-import { defaultFilters, cycleTriState } from '../domain/Filter';
+import type { FilterState } from '../domain/Filter';
+import { defaultFilters } from '../domain/Filter';
 import type { StandardBase } from '../domain/Rarity';
 import { STANDARD_BASES, RARITY_COLORS } from '../domain/Rarity';
 
@@ -10,34 +10,11 @@ interface Props {
   allSeries: ReadonlyArray<string>;
 }
 
-const BASE_LABELS: Record<StandardBase, string> = {
-  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader',
+const BASE_LABELS: Record<StandardBase | 'SP', string> = {
+  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader', SP: 'SP',
 };
 
-function TriToggle({ label, value, onChange, activeColor }: {
-  label: string;
-  value: TriState;
-  onChange: (v: TriState) => void;
-  activeColor: string;
-}) {
-  return (
-    <button
-      className={`tri-toggle ${value._tag === 'Off' ? '' : value._tag === 'Include' ? 'on' : 'off'}`}
-      style={
-        value._tag === 'Include'
-          ? { borderColor: activeColor, color: activeColor }
-          : value._tag === 'Exclude'
-            ? { borderColor: 'var(--danger)', color: 'var(--danger)' }
-            : undefined
-      }
-      onClick={() => onChange(cycleTriState(value))}
-    >
-      {label}
-      {value._tag === 'Include' && ' \u2713'}
-      {value._tag === 'Exclude' && ' \u2717'}
-    </button>
-  );
-}
+const ALL_BASES: ReadonlyArray<StandardBase | 'SP'> = [...STANDARD_BASES, 'SP'];
 
 export default function FilterPanel({ filters, onChange, allSeries }: Props) {
   const toggleSerie = (s: string) => {
@@ -47,7 +24,7 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
     onChange({ ...filters, series });
   };
 
-  const toggleBase = (b: StandardBase) => {
+  const toggleBase = (b: StandardBase | 'SP') => {
     const rarityBases = filters.rarityBases.includes(b)
       ? filters.rarityBases.filter((x) => x !== b)
       : [...filters.rarityBases, b];
@@ -74,7 +51,7 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
       <div className="filter-section">
         <label className="filter-label">Rareté</label>
         <div className="filter-pills">
-          {STANDARD_BASES.map((b) => (
+          {ALL_BASES.map((b) => (
             <button
               key={b}
               className={`filter-pill ${filters.rarityBases.includes(b) ? 'selected' : ''}`}
@@ -88,10 +65,15 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
       </div>
 
       <div className="filter-section">
-        <label className="filter-label">Modificateurs</label>
+        <label className="filter-label">Modificateur</label>
         <div className="filter-pills">
-          <TriToggle label="Parallel" value={filters.parallel} onChange={(v) => onChange({ ...filters, parallel: v })} activeColor="var(--gold)" />
-          <TriToggle label="SP" value={filters.sp} onChange={(v) => onChange({ ...filters, sp: v })} activeColor="var(--green)" />
+          <button
+            className={`filter-pill ${filters.parallel ? 'selected' : ''}`}
+            style={filters.parallel ? { borderColor: 'var(--gold)', color: 'var(--gold)' } : undefined}
+            onClick={() => onChange({ ...filters, parallel: !filters.parallel })}
+          >
+            Parallel{filters.parallel ? ' ✓' : ''}
+          </button>
         </div>
       </div>
 

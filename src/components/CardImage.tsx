@@ -3,6 +3,7 @@ import { Option } from 'effect';
 import type { Card } from '../domain/Card';
 import type { SpIndex } from '../services/ImageResolver';
 import { resolveImageUrl } from '../services/ImageResolver';
+import { useImageCache } from '../hooks/useImageCache';
 
 interface Props {
   card: Card;
@@ -15,10 +16,14 @@ export default function CardImage({ card, spIndex, className, alt }: Props) {
   const [error, setError] = useState(false);
 
   const srcOption = resolveImageUrl(card, spIndex ?? new Map());
-  const src = Option.getOrNull(srcOption);
+  const rawSrc = Option.getOrNull(srcOption);
   const label = alt ?? `${card.idcard} ${card.character}`;
 
-  if (!src || (error && Option.isNone(card.image))) {
+  const isCustom = Option.isSome(card.image);
+  const { src, onImgLoad } = useImageCache(isCustom ? null : rawSrc);
+  const finalSrc = isCustom ? rawSrc : src;
+
+  if (!finalSrc || (error && Option.isNone(card.image))) {
     return (
       <div className={`card-image-placeholder ${className ?? ''}`}>
         <span>{card.idcard}</span>
@@ -28,10 +33,11 @@ export default function CardImage({ card, spIndex, className, alt }: Props) {
 
   return (
     <img
-      src={src}
+      src={finalSrc}
       alt={label}
       className={className}
       loading="lazy"
+      onLoad={isCustom ? undefined : onImgLoad}
       onError={() => setError(true)}
     />
   );

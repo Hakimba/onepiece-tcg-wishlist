@@ -15,6 +15,7 @@ import { parsePrice, displayPriceOrDash, displayPrice } from '../domain/Price';
 import type { SpIndex } from '../services/ImageResolver';
 import { resolveImageUrl } from '../services/ImageResolver';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useImageCache } from '../hooks/useImageCache';
 import RarityBadge from './RarityBadge';
 import CardImage from './CardImage';
 
@@ -279,7 +280,10 @@ export default function CardDetail({
   };
 
   const imageUrlOpt = resolveImageUrl(card, spIndex ?? EMPTY_SP_INDEX);
-  const imageUrl = Option.getOrNull(imageUrlOpt);
+  const rawImageUrl = Option.getOrNull(imageUrlOpt);
+  const isCustomImage = Option.isSome(card.image);
+  const { src: cachedImageUrl } = useImageCache(isCustomImage ? null : rawImageUrl);
+  const imageUrl = isCustomImage ? rawImageUrl : (cachedImageUrl ?? rawImageUrl);
 
   return (
     <div className="detail">

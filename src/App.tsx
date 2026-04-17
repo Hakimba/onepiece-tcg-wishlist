@@ -14,6 +14,7 @@ import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
+import { useOnlineSync } from './hooks/useOnlineSync';
 import './styles/app.css';
 
 function App() {
@@ -40,6 +41,8 @@ function App() {
   } = useAppStore();
 
   const { theme, toggleTheme } = useTheme();
+
+  useOnlineSync(cards, ctx?.spIndex);
 
   const detailCard = state._tag === 'CardDetail' ? filteredCards[state.index] : undefined;
   const detailCardMissing = state._tag === 'CardDetail' && !detailCard;
