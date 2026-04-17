@@ -1,8 +1,8 @@
 import { Option } from 'effect';
 import type { FilterState } from '../domain/Filter';
 import { defaultFilters } from '../domain/Filter';
-import type { StandardBase } from '../domain/Rarity';
-import { STANDARD_BASES, RARITY_COLORS } from '../domain/Rarity';
+import type { RarityCategory } from '../domain/Rarity';
+import { RARITY_CATEGORIES, CATEGORY_COLORS } from '../domain/Rarity';
 
 interface Props {
   filters: FilterState;
@@ -10,11 +10,9 @@ interface Props {
   allSeries: ReadonlyArray<string>;
 }
 
-const BASE_LABELS: Record<StandardBase | 'SP', string> = {
-  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader', SP: 'SP',
+const CATEGORY_LABELS: Record<RarityCategory, string> = {
+  C: 'C', UC: 'UC', R: 'R', SR: 'SR', SEC: 'SEC', L: 'Leader', SP: 'SP', P: 'Promo',
 };
-
-const ALL_BASES: ReadonlyArray<StandardBase | 'SP'> = [...STANDARD_BASES, 'SP'];
 
 export default function FilterPanel({ filters, onChange, allSeries }: Props) {
   const toggleSerie = (s: string) => {
@@ -24,7 +22,7 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
     onChange({ ...filters, series });
   };
 
-  const toggleBase = (b: StandardBase | 'SP') => {
+  const toggleBase = (b: RarityCategory) => {
     const rarityBases = filters.rarityBases.includes(b)
       ? filters.rarityBases.filter((x) => x !== b)
       : [...filters.rarityBases, b];
@@ -51,14 +49,14 @@ export default function FilterPanel({ filters, onChange, allSeries }: Props) {
       <div className="filter-section">
         <label className="filter-label">Rareté</label>
         <div className="filter-pills">
-          {ALL_BASES.map((b) => (
+          {RARITY_CATEGORIES.map((b) => (
             <button
               key={b}
               className={`filter-pill ${filters.rarityBases.includes(b) ? 'selected' : ''}`}
-              style={filters.rarityBases.includes(b) ? { background: RARITY_COLORS[b], color: b === 'SEC' ? '#1a1a2e' : '#fff', borderColor: RARITY_COLORS[b] } : undefined}
+              style={filters.rarityBases.includes(b) ? { background: CATEGORY_COLORS[b], color: b === 'SEC' ? '#1a1a2e' : '#fff', borderColor: CATEGORY_COLORS[b] } : undefined}
               onClick={() => toggleBase(b)}
             >
-              {BASE_LABELS[b]}
+              {CATEGORY_LABELS[b]}
             </button>
           ))}
         </div>

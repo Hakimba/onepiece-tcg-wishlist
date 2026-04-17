@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { Option, pipe } from 'effect';
 import { useAppStore } from './hooks/useAppStore';
 import { useTheme } from './hooks/useTheme';
 import { AppAction } from './state/AppAction';
+import { IdCard } from './domain/Card';
+import type { SetCode } from './domain/SetCode';
+import * as SC from './domain/SetCode';
 import type { ViewMode, SortPrice } from './state/AppState';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
@@ -43,6 +47,18 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   useOnlineSync(cards, ctx?.spIndex);
+
+  const validPrefixes = useMemo((): ReadonlySet<SetCode> => {
+    const s = new Set<SetCode>();
+    if (!ctx) return s;
+    for (const id of Object.keys(ctx.variantsIndex)) {
+      pipe(
+        SC.extractFromIdCard(IdCard(id)),
+        Option.map((code) => s.add(code)),
+      );
+    }
+    return s;
+  }, [ctx]);
 
   const detailCard = state._tag === 'CardDetail' ? filteredCards[state.index] : undefined;
   const detailCardMissing = state._tag === 'CardDetail' && !detailCard;
@@ -105,6 +121,7 @@ function App() {
           onAdd={handleAdd}
           onCancel={() => dispatch(AppAction.HideAdd())}
           error={state.error}
+          validPrefixes={validPrefixes}
         />
       </>
     );

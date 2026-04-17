@@ -1,49 +1,62 @@
 import { useState } from 'react';
 import { Option } from 'effect';
 import type { Card } from '../domain/Card';
-import { makeCard } from '../domain/Card';
-import type { StandardBase } from '../domain/Rarity';
-import { STANDARD_BASES, RARITY_COLORS, buildRarity } from '../domain/Rarity';
+import { makeCard, normalizeIdCard } from '../domain/Card';
+import type { Rarity as RarityType } from '../domain/Rarity';
+import { Standard, Promo } from '../domain/Rarity';
 import { parsePrice } from '../domain/Price';
+import type { SetCode } from '../domain/SetCode';
+import * as SC from '../domain/SetCode';
+import RarityPicker from './RarityPicker';
 
 interface Props {
   onAdd: (card: Card) => void;
   onCancel: () => void;
   error: Option.Option<string>;
+  validPrefixes: ReadonlySet<SetCode>;
 }
 
-const VALID_ID_REGEX = /^[A-Z]{2,4}\d{1,2}-\d{3}[A-Z]?$/;
+const ID_STRUCTURE_REGEX = /^[A-Z]{1,4}\d{0,2}-\d{3}[A-Z]?$/;
 
-export default function AddCardForm({ onAdd, onCancel, error }: Props) {
+export default function AddCardForm({ onAdd, onCancel, error, validPrefixes }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
-  const [baseRarity, setBaseRarity] = useState<StandardBase | null>('R');
-  const [isParallel, setIsParallel] = useState(false);
-  const [isSP, setIsSP] = useState(false);
+  const [rarity, setRarity] = useState<RarityType>(Standard({ base: 'R' }));
   const [price, setPrice] = useState('');
   const [idError, setIdError] = useState('');
+
+  const idCardBranded = normalizeIdCard(idcard);
+  const setCode = SC.extractFromIdCard(idCardBranded);
+  const isPromoId = SC.isPromoId(idCardBranded);
+  const effectiveRarity = isPromoId ? Promo() : rarity;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const id = idcard.trim().toUpperCase();
     if (!id) { setIdError('ID carte requis'); return; }
-    if (!VALID_ID_REGEX.test(id)) {
-      setIdError('Format invalide (ex: OP01-013)');
+    if (!ID_STRUCTURE_REGEX.test(id)) {
+      setIdError('Format invalide (ex: OP01-013, P-033)');
       return;
     }
-    const idPrefix = id.match(/^([A-Z]{2,4}\d{1,2})/)?.[1] ?? '';
-    if (serie.trim() && idPrefix !== serie.trim().toUpperCase()) {
-      setIdError(`Série incohérente avec l'ID (attendu: ${idPrefix})`);
+    const prefix = Option.getOrNull(setCode);
+    if (!prefix || !validPrefixes.has(prefix)) {
+      const display = prefix ?? id.match(/^([A-Z]+\d*)/)?.[1] ?? id;
+      setIdError(`Préfixe inconnu "${display}" (ex: OP01, ST01, P, EB01)`);
+      return;
+    }
+    const prefixStr = String(prefix);
+    if (serie.trim() && prefixStr !== serie.trim().toUpperCase()) {
+      setIdError(`Série incohérente avec l'ID (attendu: ${prefixStr})`);
       return;
     }
     setIdError('');
     onAdd(
       makeCard({
-        serie: serie.trim() || idPrefix,
+        serie: serie.trim() || (isPromoId ? '' : prefixStr),
         idcard: id,
         character: character.trim(),
-        rarity: buildRarity(baseRarity, isParallel, isSP),
+        rarity: effectiveRarity,
         price: parsePrice(price.trim()),
       }),
     );
@@ -89,49 +102,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
         </div>
         <div className="form-field">
           <label>Rareté</label>
-          <div className="rarity-picker">
-            <button
-              type="button"
-              className={`rarity-pill${baseRarity === null && !isSP ? ' selected' : ''}`}
-              style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
-              onClick={() => { setBaseRarity(null); setIsParallel(false); setIsSP(false); }}
-            >
-              ?
-            </button>
-            {STANDARD_BASES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                className={`rarity-pill${baseRarity === r && !isSP ? ' selected' : ''}`}
-                style={{
-                  '--pill-color': RARITY_COLORS[r],
-                } as React.CSSProperties}
-                onClick={() => { setBaseRarity(r); setIsSP(false); }}
-              >
-                {r === 'L' ? 'Leader' : r}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={`rarity-pill${isSP ? ' selected' : ''}`}
-              style={{ '--pill-color': RARITY_COLORS['SP'] } as React.CSSProperties}
-              onClick={() => { setIsSP(true); setBaseRarity(null); setIsParallel(false); }}
-            >
-              SP
-            </button>
-          </div>
-          {baseRarity !== null && !isSP && (
-            <div className="rarity-toggles">
-              <label className="rarity-toggle">
-                <input
-                  type="checkbox"
-                  checked={isParallel}
-                  onChange={(e) => setIsParallel(e.target.checked)}
-                />
-                <span className="toggle-label toggle-alt">Parallel / Alt</span>
-              </label>
-            </div>
-          )}
+          <RarityPicker rarity={rarity} onChange={setRarity} isPromo={isPromoId} />
         </div>
         <div className="form-field">
           <label>Prix</label>

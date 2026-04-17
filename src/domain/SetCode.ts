@@ -1,30 +1,53 @@
-import { Option } from "effect"
+import { Brand, Option, pipe } from "effect"
+import type { IdCard } from "./Card"
 
 // ---------------------------------------------------------------------------
-// Set Code utilities — extraction and normalization
+// SetCode — branded type for set identifiers (OP09, P, ST01, etc.)
 // ---------------------------------------------------------------------------
 
-/** Normalize set codes for comparison: "OP-09" -> "OP09", "PRB-02" -> "PRB02" */
-export const normalize = (code: string): string =>
-  code.replace(/-/g, "")
+export type SetCode = string & Brand.Brand<"SetCode">
+export const SetCode = Brand.nominal<SetCode>()
 
-/** Extract set prefix from idcard: "OP09-004" -> "OP09" */
-export const extractFromIdCard = (idcard: string): Option.Option<string> => {
-  const m = idcard.match(/^([A-Z]+\d+)-/)
-  return m ? Option.some(m[1]) : Option.none()
-}
+// ---------------------------------------------------------------------------
+// Extraction
+// ---------------------------------------------------------------------------
 
-/** Extract set code from cs field — bracket format "[OP-09]" or bare "OP-05" */
-export const extractFromCs = (cs: string): Option.Option<string> => {
+export const extractFromIdCard = (idcard: IdCard): Option.Option<SetCode> =>
+  pipe(
+    idcard.match(/^([A-Z]+\d*)-/),
+    Option.fromNullable,
+    Option.map((m) => SetCode(m[1])),
+  )
+
+export const extractFromCs = (cs: string): Option.Option<SetCode> => {
   const bracketMatch = cs.match(/\[([A-Z0-9-]+)\]/)
-  if (bracketMatch) return Option.some(bracketMatch[1])
+  if (bracketMatch) return Option.some(SetCode(bracketMatch[1]))
   const bare = cs.trim()
-  if (/^[A-Z]+\d*-?\d+$/.test(bare)) return Option.some(bare)
+  if (/^[A-Z]+\d*-?\d+$/.test(bare)) return Option.some(SetCode(bare))
   return Option.none()
 }
 
-/** Known extension prefixes for set filtering */
+// ---------------------------------------------------------------------------
+// Normalization & comparison
+// ---------------------------------------------------------------------------
+
+export const normalize = (code: SetCode): string =>
+  (code as string).replace(/-/g, "")
+
+export const equals = (a: SetCode, b: SetCode): boolean =>
+  normalize(a) === normalize(b)
+
+// ---------------------------------------------------------------------------
+// Classification
+// ---------------------------------------------------------------------------
+
 const EXTENSION_PREFIXES = ["OP", "EB", "ST", "PRB"] as const
 
-export const isExtensionSet = (code: string): boolean =>
-  EXTENSION_PREFIXES.some((p) => code.startsWith(p))
+export const isExtensionSet = (code: SetCode): boolean =>
+  EXTENSION_PREFIXES.some((p) => (code as string).startsWith(p))
+
+export const isPromoPrefix = (code: SetCode): boolean =>
+  (code as string) === "P"
+
+export const isPromoId = (idcard: IdCard): boolean =>
+  pipe(extractFromIdCard(idcard), Option.map(isPromoPrefix), Option.getOrElse(() => false))

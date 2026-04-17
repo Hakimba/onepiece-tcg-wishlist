@@ -1,7 +1,7 @@
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 import type { Card } from "./Card"
 import * as R from "./Rarity"
-import type { StandardBase } from "./Rarity"
+import type { RarityCategory } from "./Rarity"
 import * as P from "./Price"
 
 // ---------------------------------------------------------------------------
@@ -10,7 +10,7 @@ import * as P from "./Price"
 
 export interface FilterState {
   readonly series: ReadonlyArray<string>
-  readonly rarityBases: ReadonlyArray<StandardBase | "SP">
+  readonly rarityBases: ReadonlyArray<RarityCategory>
   readonly parallel: boolean
   readonly priceMin: Option.Option<number>
   readonly priceMax: Option.Option<number>
@@ -31,11 +31,13 @@ export const defaultFilters: FilterState = {
 const bySeries = (series: ReadonlyArray<string>) => (card: Card): boolean =>
   series.length === 0 || series.includes(card.serie)
 
-const byRarityBases = (bases: ReadonlyArray<StandardBase | "SP">) => (card: Card): boolean => {
+const byRarityBases = (bases: ReadonlyArray<RarityCategory>) => (card: Card): boolean => {
   if (bases.length === 0) return true
-  if (R.isSP(card.rarity)) return (bases as readonly string[]).includes("SP")
-  const base = R.getBase(card.rarity)
-  return base !== null && (bases as readonly string[]).includes(base)
+  return pipe(
+    R.toCategory(card.rarity),
+    Option.map((cat) => (bases as readonly string[]).includes(cat)),
+    Option.getOrElse(() => false),
+  )
 }
 
 const byParallel = (on: boolean) => (card: Card): boolean =>

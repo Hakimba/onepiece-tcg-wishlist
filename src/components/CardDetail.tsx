@@ -1,16 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Option } from 'effect';
 import type { Card } from '../domain/Card';
-import { makeCardId } from '../domain/Card';
-import type { StandardBase } from '../domain/Rarity';
-import {
-  STANDARD_BASES,
-  RARITY_COLORS,
-  buildRarity,
-  getBase,
-  isParallel as rarityIsParallel,
-  isSP as rarityIsSP,
-} from '../domain/Rarity';
+import { makeCardId, normalizeIdCard } from '../domain/Card';
+import type { Rarity as RarityType } from '../domain/Rarity';
+import { Promo } from '../domain/Rarity';
+import * as SC from '../domain/SetCode';
+import RarityPicker from './RarityPicker';
 import { parsePrice, displayPriceOrDash, displayPrice } from '../domain/Price';
 import type { SpIndex } from '../services/ImageResolver';
 import { resolveImageUrl } from '../services/ImageResolver';
@@ -54,11 +49,12 @@ export default function CardDetail({
   const [editIdcard, setEditIdcard] = useState(card.idcard as string);
   const [editCharacter, setEditCharacter] = useState(card.character);
   const [editPrice, setEditPrice] = useState(displayPrice(card.price));
-  const base = getBase(card.rarity);
-  const [editBase, setEditBase] = useState<StandardBase | null>(base);
-  const [editParallel, setEditParallel] = useState(rarityIsParallel(card.rarity));
-  const [editSP, setEditSP] = useState(rarityIsSP(card.rarity));
+  const [editRarity, setEditRarity] = useState<RarityType>(card.rarity);
   const [editBuyLink, setEditBuyLink] = useState(Option.getOrElse(card.buyLink, () => ''));
+
+  const editIdBranded = normalizeIdCard(editIdcard);
+  const editIsPromo = SC.isPromoId(editIdBranded);
+  const editEffectiveRarity = editIsPromo ? Promo() : editRarity;
 
   // Swipe animation state
   const [dragX, setDragX] = useState(0);
@@ -86,10 +82,7 @@ export default function CardDetail({
     setEditIdcard(card.idcard as string);
     setEditCharacter(card.character);
     setEditPrice(displayPrice(card.price));
-    const b = getBase(card.rarity);
-    setEditBase(b);
-    setEditParallel(rarityIsParallel(card.rarity));
-    setEditSP(rarityIsSP(card.rarity));
+    setEditRarity(card.rarity);
     setEditBuyLink(Option.getOrElse(card.buyLink, () => ''));
 
     // Slide-in: position off-screen on opposite side, then animate to center
@@ -245,7 +238,7 @@ export default function CardDetail({
   };
 
   const handleEditSave = () => {
-    const newRarity = buildRarity(editBase, editParallel, editSP);
+    const newRarity = editEffectiveRarity;
     const newIdcard = editIdcard.trim().toUpperCase();
     const newId = makeCardId(newIdcard, newRarity);
     const oldId = card.id !== newId ? card.id as string : undefined;
@@ -271,10 +264,7 @@ export default function CardDetail({
     setEditIdcard(card.idcard as string);
     setEditCharacter(card.character);
     setEditPrice(displayPrice(card.price));
-    const b = getBase(card.rarity);
-    setEditBase(b);
-    setEditParallel(rarityIsParallel(card.rarity));
-    setEditSP(rarityIsSP(card.rarity));
+    setEditRarity(card.rarity);
     setEditBuyLink(Option.getOrElse(card.buyLink, () => ''));
     setEditing(false);
   };
@@ -382,47 +372,7 @@ export default function CardDetail({
               </div>
               <div className="detail-edit-field">
                 <label className="detail-label">Rareté</label>
-                <div className="rarity-picker">
-                  <button
-                    type="button"
-                    className={`rarity-pill${editBase === null && !editSP ? ' selected' : ''}`}
-                    style={{ '--pill-color': '#6b7280' } as React.CSSProperties}
-                    onClick={() => { setEditBase(null); setEditParallel(false); setEditSP(false); }}
-                  >
-                    ?
-                  </button>
-                  {STANDARD_BASES.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className={`rarity-pill${editBase === r && !editSP ? ' selected' : ''}`}
-                      style={{ '--pill-color': RARITY_COLORS[r] } as React.CSSProperties}
-                      onClick={() => { setEditBase(r); setEditSP(false); }}
-                    >
-                      {r === 'L' ? 'Leader' : r}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`rarity-pill${editSP ? ' selected' : ''}`}
-                    style={{ '--pill-color': RARITY_COLORS['SP'] } as React.CSSProperties}
-                    onClick={() => { setEditSP(true); setEditBase(null); setEditParallel(false); }}
-                  >
-                    SP
-                  </button>
-                </div>
-                {editBase !== null && !editSP && (
-                  <div className="rarity-toggles">
-                    <label className="rarity-toggle">
-                      <input
-                        type="checkbox"
-                        checked={editParallel}
-                        onChange={(e) => setEditParallel(e.target.checked)}
-                      />
-                      <span className="toggle-label toggle-alt">Parallel / Alt</span>
-                    </label>
-                  </div>
-                )}
+                <RarityPicker rarity={editRarity} onChange={setEditRarity} isPromo={editIsPromo} />
               </div>
               <div className="detail-edit-field">
                 <label className="detail-label">Prix</label>

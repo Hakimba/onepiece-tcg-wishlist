@@ -19,7 +19,7 @@ interface Props {
 
 export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinish, onCancel }: Props) {
   const [items, setItems] = useState<ReadonlyArray<AmbiguousCard>>(ambiguous);
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(mode === "add" && ambiguous.length === 1 ? 0 : null);
   const [carouselIndex, setCarouselIndex] = useState<number | null>(null);
   const touchStart = useRef<number | null>(null);
 
@@ -85,7 +85,10 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
     return (
       <div className="disambiguation-screen">
         <div className="disambiguation-header">
-          <button className="btn-back" onClick={() => { setActiveIndex(null); setCarouselIndex(null); }}>
+          <button className="btn-back" onClick={() => {
+            if (mode === "add" && items.length === 1) { onCancel(); return; }
+            setActiveIndex(null); setCarouselIndex(null);
+          }}>
             ← Retour
           </button>
           <h2>{item.card.idcard}</h2>

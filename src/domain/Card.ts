@@ -13,6 +13,9 @@ export const CardId = Brand.nominal<CardId>()
 export type IdCard = string & Brand.Brand<"IdCard">
 export const IdCard = Brand.nominal<IdCard>()
 
+export const normalizeIdCard = (raw: string): IdCard =>
+  IdCard(raw.trim().toUpperCase())
+
 // ---------------------------------------------------------------------------
 // Card — the core domain entity
 // ---------------------------------------------------------------------------

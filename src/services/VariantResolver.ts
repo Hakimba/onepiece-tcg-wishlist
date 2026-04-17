@@ -1,5 +1,6 @@
-import { Data, Option } from "effect"
+import { Data, Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
+import type { IdCard } from "../domain/Card"
 import { makeCardId } from "../domain/Card"
 import type { Rarity } from "../domain/Rarity"
 import * as R from "../domain/Rarity"
@@ -61,7 +62,11 @@ const filterByRarity = (rarity: Rarity) => (variants: ReadonlyArray<VariantEntry
     return variants.filter((v) => v.r === "SP CARD")
   }
 
-  const dotggBase = R.toDotggBase(rarity)
+  if (R.isPromo(rarity)) {
+    return variants.filter((v) => v.r === "P")
+  }
+
+  const dotggBase = pipe(R.toDotggBase(rarity), Option.getOrNull)
 
   if (R.isParallel(rarity)) {
     return variants.filter((v) =>
@@ -81,37 +86,42 @@ const filterBySerie = (
 ): ((variants: ReadonlyArray<VariantEntry>) => { readonly result: ReadonlyArray<VariantEntry>; readonly matched: boolean }) =>
   (variants) => {
     if (!serie) return { result: variants, matched: true }
-    const norm = SC.normalize(serie)
-    const matched = variants.filter((v) => {
-      const code = Option.getOrNull(SC.extractFromCs(v.cs))
-      return code !== null && SC.normalize(code) === norm
-    })
+    const serieCode = SC.SetCode(serie)
+    const matched = variants.filter((v) =>
+      pipe(
+        SC.extractFromCs(v.cs),
+        Option.map((code) => SC.equals(code, serieCode)),
+        Option.getOrElse(() => false),
+      ),
+    )
     return matched.length > 0
       ? { result: matched, matched: true }
       : { result: variants, matched: false }
   }
 
 /** Stage 3: Filter by set (for standard rarity — avoid cross-set reprints) */
-const filterBySet = (idcard: string) => (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> => {
-  const setPrefix = Option.getOrNull(SC.extractFromIdCard(idcard))
-  if (!setPrefix) return variants
+const filterBySet = (idcard: IdCard) => (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> =>
+  pipe(
+    SC.extractFromIdCard(idcard),
+    Option.match({
+      onNone: () => variants as VariantEntry[],
+      onSome: (origin) => {
+        const filtered: VariantEntry[] = []
+        const fromOriginSet: VariantEntry[] = []
 
-  const norm = SC.normalize(setPrefix)
-  const filtered: VariantEntry[] = []
-  const fromOriginSet: VariantEntry[] = []
+        for (const v of variants) {
+          const code = Option.getOrNull(SC.extractFromCs(v.cs))
+          if (!code) { filtered.push(v); continue }
+          if (SC.equals(code, origin)) { filtered.push(v); fromOriginSet.push(v); continue }
+          if (!SC.isExtensionSet(code)) { filtered.push(v) }
+        }
 
-  for (const v of variants) {
-    const code = Option.getOrNull(SC.extractFromCs(v.cs))
-    if (!code) { filtered.push(v); continue }
-    const normCode = SC.normalize(code)
-    if (normCode === norm) { filtered.push(v); fromOriginSet.push(v); continue }
-    if (!SC.isExtensionSet(code)) { filtered.push(v) }
-  }
-
-  if (filtered.length === 0) return variants as VariantEntry[]
-  if (fromOriginSet.length > 0 && fromOriginSet.length < filtered.length) return fromOriginSet
-  return filtered
-}
+        if (filtered.length === 0) return variants as VariantEntry[]
+        if (fromOriginSet.length > 0 && fromOriginSet.length < filtered.length) return fromOriginSet
+        return filtered
+      },
+    }),
+  )
 
 /** Stage 4: Deduplicate — remove variants already in the wishlist */
 const dedup = (existingSuffixes: ReadonlySet<string> | undefined) =>
@@ -223,7 +233,7 @@ const resolveOne = (
 const fillSerie = (card: Card): Card =>
   card.serie
     ? card
-    : { ...card, serie: Option.getOrElse(SC.extractFromIdCard(card.idcard), () => "") }
+    : { ...card, serie: pipe(SC.extractFromIdCard(card.idcard), Option.map(String), Option.getOrElse(() => "")) }
 
 const fillCharacter = (card: Card, name: string): Card =>
   card.character.trim() ? card : { ...card, character: name || card.character }

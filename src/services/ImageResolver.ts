@@ -46,6 +46,7 @@ export const resolveImageUrl = (
         ? Option.some(`${CDN_BASE}/${card.idcard}${suffix}.webp`)
         : Option.none()
     },
+    Promo: () => Option.some(`${CDN_BASE}/${card.idcard}.webp`),
     Unknown: () => Option.some(`${CDN_BASE}/${card.idcard}.webp`),
   })(card.rarity)
 }
