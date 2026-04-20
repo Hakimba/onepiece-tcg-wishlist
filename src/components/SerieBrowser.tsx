@@ -15,6 +15,8 @@ import type { SetVariantEntry, SetLists } from "../domain/SetIndex"
 import type { VariantsIndex } from "../services/VariantResolver"
 import { variantImageUrl } from "../services/ImageResolver"
 import RarityBadge from "./RarityBadge"
+import SerieSwipeView from "./SerieSwipeView"
+import { useIsMobile } from "../hooks/useIsMobile"
 
 // ---------------------------------------------------------------------------
 // Rarity display mapping (dotgg → UI color key)
@@ -59,6 +61,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function SerieBrowser({ variantsIndex, setLists, existingCards, onConfirm, onBack }: Props) {
+  const isMobile = useIsMobile()
   const [selectedSet, setSelectedSet] = useState<string | null>(null)
   const [selectedRarities, setSelectedRarities] = useState<ReadonlySet<string>>(new Set())
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
@@ -93,10 +96,12 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
 
   const selectedCount = selectedKeys.size
 
-  const selectableCount = useMemo(
-    () => filteredEntries.filter((e) => !existingIds.has(entryCardId(e))).length,
+  const swipeQueue = useMemo(
+    () => filteredEntries.filter((e) => !existingIds.has(entryCardId(e))),
     [filteredEntries, existingIds, entryCardId],
   )
+
+  const selectableCount = swipeQueue.length
 
   // ----- Handlers -----
 
@@ -212,14 +217,16 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
               ))}
             </div>
 
-            <div className="serie-browser-actions">
-              <button type="button" onClick={handleSelectAll}>
-                Tout sélectionner
-              </button>
-              <button type="button" onClick={handleDeselectAll}>
-                Tout désélectionner
-              </button>
-            </div>
+            {!isMobile && (
+              <div className="serie-browser-actions">
+                <button type="button" onClick={handleSelectAll}>
+                  Tout sélectionner
+                </button>
+                <button type="button" onClick={handleDeselectAll}>
+                  Tout désélectionner
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -232,6 +239,14 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
         <div className="serie-browser-empty">
           Aucune carte pour ces filtres
         </div>
+      ) : isMobile ? (
+        <SerieSwipeView
+          entries={swipeQueue}
+          setCode={selectedSet}
+          selectedKeys={selectedKeys}
+          onToggle={handleToggleCard}
+          onZoom={handleZoom}
+        />
       ) : (
         <div className="serie-browser-grid">
           {filteredEntries.map((entry) => (

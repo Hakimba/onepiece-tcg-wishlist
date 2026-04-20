@@ -7,6 +7,7 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 - **Import/export CSV** — importer une wishlist, exporter pour backup ou partage
 - **Deux vues** — liste (tableau) ou mosaique (grille d'images responsive)
 - **Fiche carte** — detail avec image, rarete, prix, lien d'achat, navigation par swipe, zoom fullscreen
+- **Import par serie** — parcourir les sets, filtrer par rarete, selectionner des variantes. Sur mobile : UX swipe type Tinder (droite = accepter, gauche = passer, undo, zoom). Les filtres rarete sont compatibles avec le swipe sans perte de progression
 - **Ajout manuel** — formulaire avec selecteur de rarete visuel (pills C/UC/R/SR/SEC/Leader/SP + toggle Parallel), detection automatique des promos via prefixe ID, validation des prefixes contre l'index des variantes
 - **Edition complete** — tous les champs editables depuis la fiche carte
 - **Images automatiques** — images CDN depuis dotgg, resolution automatique du suffixe selon la rarete, verification de coherence rarete/serie
@@ -36,7 +37,7 @@ src/
 ├── domain/          — types metier (Card, Rarity, Price, SetCode, Filter, Disambiguation)
 ├── services/        — logique applicative (CardRepository, CsvCodec, ImageResolver, VariantResolver, IndexLoader)
 ├── state/           — state machine (AppPage TaggedEnum, AppReducer, AppEffects, AppAction)
-├── hooks/           — React hooks (useAppStore, useImageCache, useOnlineSync, useTheme)
+├── hooks/           — React hooks (useAppStore, useImageCache, useOnlineSync, useIsMobile, useTheme)
 ├── components/      — composants UI React
 ├── runtime.ts       — Effect runtime + Layer composition
 └── App.tsx          — point d'entree, routing entre vues
