@@ -5,6 +5,7 @@ import { defaultFilters } from "../domain/Filter"
 import type { AmbiguousCard, DisambiguationMode } from "../domain/Disambiguation"
 import type { SpIndex } from "../services/ImageResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
+import type { SetLists } from "../domain/SetIndex"
 
 // ---------------------------------------------------------------------------
 // View modes
@@ -21,6 +22,7 @@ export interface AppContext {
   readonly cards: ReadonlyArray<Card>
   readonly spIndex: SpIndex
   readonly variantsIndex: VariantsIndex
+  readonly setLists: SetLists
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +37,7 @@ export interface UIState {
   readonly filters: FilterState
   readonly showFilters: boolean
   readonly drawerOpen: boolean
+  readonly importModalOpen: boolean
 }
 
 export const defaultUIState: UIState = {
@@ -45,6 +48,7 @@ export const defaultUIState: UIState = {
   filters: defaultFilters,
   showFilters: false,
   drawerOpen: false,
+  importModalOpen: false,
 }
 
 // ---------------------------------------------------------------------------

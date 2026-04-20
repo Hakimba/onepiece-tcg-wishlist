@@ -3,6 +3,7 @@ import type { Card } from "../domain/Card"
 import type { AmbiguousCard, DisambiguationMode } from "../domain/Disambiguation"
 import type { SpIndex } from "../services/ImageResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
+import type { SetLists } from "../domain/SetIndex"
 import type { UIState } from "./AppState"
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,7 @@ export type AppAction = Data.TaggedEnum<{
     readonly cards: ReadonlyArray<Card>
     readonly spIndex: SpIndex
     readonly variantsIndex: VariantsIndex
+    readonly setLists: SetLists
   }
 
   // Navigation

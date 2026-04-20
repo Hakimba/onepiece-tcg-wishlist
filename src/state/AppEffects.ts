@@ -1,6 +1,6 @@
 import { Effect, Either, Option } from "effect"
 import { CardRepository } from "../services/CardRepository"
-import { SpIndexService, VariantsIndexService } from "../services/IndexLoader"
+import { SpIndexService, VariantsIndexService, SetListsService } from "../services/IndexLoader"
 import { parseCsv } from "../services/CsvCodec"
 import { resolveVariants } from "../services/VariantResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
@@ -17,14 +17,16 @@ export const loadApp = Effect.gen(function* () {
   const repo = yield* CardRepository
   const spService = yield* SpIndexService
   const viService = yield* VariantsIndexService
+  const slService = yield* SetListsService
 
-  const [cards, spIndex, variantsIndex] = yield* Effect.all([
+  const [cards, spIndex, variantsIndex, setLists] = yield* Effect.all([
     repo.loadAll,
     Effect.orElseSucceed(spService.load, () => new Map() as ReadonlyMap<string, string>),
     Effect.orElseSucceed(viService.load, () => ({}) as VariantsIndex),
+    Effect.orElseSucceed(slService.load, () => ({}) as import("../domain/SetIndex").SetLists),
   ], { concurrency: "unbounded" })
 
-  return AppAction.Loaded({ cards, spIndex, variantsIndex }) as AppActionType
+  return AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }) as AppActionType
 })
 
 // ---------------------------------------------------------------------------
@@ -138,6 +140,29 @@ export const toggleFavorite = (cards: ReadonlyArray<Card>, id: CardId) =>
     const repo = yield* CardRepository
     const newCards = yield* repo.update(updated)
     return AppAction.CardsUpdated({ cards: newCards }) as AppActionType
+  })
+
+// ---------------------------------------------------------------------------
+// Import by serie — add selected cards to wishlist
+// ---------------------------------------------------------------------------
+
+export const importBySerie = (
+  selectedCards: ReadonlyArray<Card>,
+) =>
+  Effect.gen(function* () {
+    if (selectedCards.length === 0) {
+      const repo = yield* CardRepository
+      const current = yield* repo.loadAll
+      return AppAction.CardsUpdated({ cards: current }) as AppActionType
+    }
+
+    const repo = yield* CardRepository
+    const current = yield* repo.loadAll
+    const existingIds = new Set(current.map((c: Card) => c.id))
+    const merged = [...current, ...selectedCards.filter((c: Card) => !existingIds.has(c.id))]
+    yield* repo.saveAll(merged)
+
+    return AppAction.CardsUpdated({ cards: merged }) as AppActionType
   })
 
 // ---------------------------------------------------------------------------
