@@ -1,9 +1,11 @@
-import { useEffect, type ReactNode } from 'react';
-import type { PageId } from '../types';
+import { type ReactNode } from 'react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+
+type PageId = 'home' | 'characters';
 
 interface Props {
   open: boolean;
-  currentPage: PageId;
+  currentPage: string;
   onNavigate: (page: PageId) => void;
   onClose: () => void;
 }
@@ -34,12 +36,7 @@ const PAGES: { id: PageId; label: string; icon: ReactNode }[] = [
 ];
 
 export default function SideDrawer({ open, currentPage, onNavigate, onClose }: Props) {
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   return (
     <div className={`drawer-backdrop ${open ? 'open' : ''}`} onClick={onClose}>

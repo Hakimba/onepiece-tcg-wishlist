@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import type { Card } from '../types';
+import type { Card } from '../domain/Card';
 
 interface Props {
-  cards: Card[];
+  cards: ReadonlyArray<Card>;
   onSelectCharacter: (name: string) => void;
   onBack: () => void;
 }
