@@ -7,10 +7,11 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 - **Import/export CSV** — importer une wishlist, exporter pour backup ou partage
 - **Deux vues** — liste (tableau) ou mosaique (grille d'images responsive)
 - **Fiche carte** — detail avec image, rarete, prix, lien d'achat, navigation par swipe, zoom fullscreen
-- **Ajout manuel** — formulaire avec selecteur de rarete visuel (pills C/UC/R/SR/SEC/Leader/SP + toggle Parallel), option "?" pour rarete inconnue
+- **Ajout manuel** — formulaire avec selecteur de rarete visuel (pills C/UC/R/SR/SEC/Leader/SP + toggle Parallel), detection automatique des promos via prefixe ID, validation des prefixes contre l'index des variantes
 - **Edition complete** — tous les champs editables depuis la fiche carte
 - **Images automatiques** — images CDN depuis dotgg, resolution automatique du suffixe selon la rarete, verification de coherence rarete/serie
-- **Disambiguation des variantes** — quand plusieurs images possibles, choix interactif avec carousel fullscreen et swipe. Cartes groupees par categorie (rarete inexistante, variantes multiples, rarete non precisee). Multi-selection possible quand rarete "?"
+- **Cache images hors-ligne** — cache persistant IndexedDB, synchronisation en arriere-plan a la reconnexion, cache memoire LRU pour les re-rendus instantanes
+- **Disambiguation des variantes** — quand plusieurs images possibles, choix interactif avec carousel fullscreen et swipe. Cartes groupees par categorie (rarete inexistante, variantes multiples, rarete non precisee). Multi-selection possible quand rarete "?". Support des series combinees (ex: OP15-EB04)
 - **Filtres composables** — serie, rarete (base + modificateurs), prix min/max, combinables
 - **Recherche** — barre de recherche avec autocompletion sur les noms de personnages
 - **Repertoire personnages** — liste auto-generee, clic = filtre sur la wishlist
@@ -23,9 +24,23 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 ## Stack
 
 - Vite + React + TypeScript
-- IndexedDB (`idb-keyval`)
-- `vite-plugin-pwa`
+- [Effect-TS](https://effect.website) — tagged enums, branded types, Option/Either, services avec Layer DI
+- IndexedDB (`idb-keyval`) — stockage cartes + cache images
+- `vite-plugin-pwa` — service worker, manifest
 - GitHub Actions + GitHub Pages
+
+## Architecture
+
+```
+src/
+├── domain/          — types metier (Card, Rarity, Price, SetCode, Filter, Disambiguation)
+├── services/        — logique applicative (CardRepository, CsvCodec, ImageResolver, VariantResolver, IndexLoader)
+├── state/           — state machine (AppPage TaggedEnum, AppReducer, AppEffects, AppAction)
+├── hooks/           — React hooks (useAppStore, useImageCache, useOnlineSync, useTheme)
+├── components/      — composants UI React
+├── runtime.ts       — Effect runtime + Layer composition
+└── App.tsx          — point d'entree, routing entre vues
+```
 
 ## Dev
 

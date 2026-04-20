@@ -5,7 +5,8 @@ App de gestion de wishlist de cartes One Piece TCG à l'unité. L'utilisateur ch
 
 ## Stack
 - Vite + React + TypeScript
-- IndexedDB via `idb-keyval` pour le stockage local
+- Effect-TS — tagged enums (Data.TaggedEnum), branded types (Brand.nominal), Option/Either, services avec Context/Layer DI
+- IndexedDB via `idb-keyval` pour le stockage local (cartes + cache images)
 - `vite-plugin-pwa` pour la PWA (service worker, manifest)
 - Déploiement auto via GitHub Actions sur push master → GitHub Pages
 
@@ -15,29 +16,52 @@ https://hakimba.github.io/onepiece-tcg-wishlist/
 ## Structure
 ```
 src/
-├── App.tsx              — routing entre vues, state global
-├── types.ts             — Card, ViewMode, PageId, FilterState
-├── store.ts             — CRUD IndexedDB
-├── csv.ts               — import/export CSV
-├── rarity.ts            — parseRarity(), buildRarityString(), couleurs
-├── filters.ts           — applyFilters(), defaultFilters, hasActiveFilters
-├── imageResolver.ts     — resolveImageUrl(), loadSpIndex() (CDN dotgg)
-├── variantResolver.ts   — resolveVariants(), loadVariantsIndex() (disambiguation)
+├── App.tsx              — point d'entrée, routing entre vues via state machine
+├── runtime.ts           — Effect runtime + Layer composition (CardRepository, IndexLoaders)
+├── domain/
+│   ├── Card.ts          — Card entity, branded types (CardId, IdCard), smart constructors
+│   ├── Rarity.ts        — Rarity TaggedEnum (Standard|Parallel|SP|Promo|Unknown), parse/display
+│   ├── Price.ts         — Price TaggedEnum (Single|Range|Empty), parse/display/compare
+│   ├── SetCode.ts       — SetCode branded type, extraction depuis idcard/cs, combined sets
+│   ├── Filter.ts        — FilterState, prédicats composables (série, rareté, prix, recherche)
+│   ├── Disambiguation.ts — AmbiguityReason TaggedEnum, AmbiguousCard, toggleChoice
+│   └── index.ts         — re-exports
+├── services/
+│   ├── CardRepository.ts — Effect service CRUD IndexedDB avec Layer, migration legacy
+│   ├── CsvCodec.ts      — parseCsv/exportCsv (Either<CsvError, Card[]>), downloadCsv
+│   ├── ImageResolver.ts — resolveImageUrl (Card → Option<string>), variantImageUrl
+│   ├── ImageCacheRepository.ts — IndexedDB blob cache, canvasToBlob utility
+│   ├── IndexLoader.ts   — SpIndexService + VariantsIndexService (Effect + Layer)
+│   ├── VariantResolver.ts — pipeline résolution (rarity → serie → set → dedup)
+│   └── index.ts         — re-exports
+├── state/
+│   ├── AppState.ts      — AppPage TaggedEnum (state machine), AppContext, UIState
+│   ├── AppAction.ts     — AppAction TaggedEnum (toutes les actions)
+│   ├── AppReducer.ts    — appReducer pur (AppPage × AppAction → AppPage)
+│   ├── AppEffects.ts    — Effect generators (loadApp, importCsv, addCard, etc.)
+│   └── index.ts         — re-exports
+├── hooks/
+│   ├── useAppStore.ts   — hook principal (state + dispatch + derived + handlers)
+│   ├── useImageCache.ts — cache blob mémoire + IndexedDB, canvasToBlob
+│   ├── useOnlineSync.ts — sync images en arrière-plan à la reconnexion
+│   ├── useBodyScrollLock.ts — lock scroll body (zoom, modales)
+│   └── useTheme.ts      — toggle light/dark mode
 ├── components/
-│   ├── Header.tsx       — toggle liste/mosaïque, tri prix, favoris, filtres, import/export, hamburger
+│   ├── Header.tsx       — toggle liste/mosaïque, tri prix, favoris, filtres, import/export
 │   ├── DisambiguationQueue.tsx — queue + picker de disambiguation des variantes
 │   ├── ListView.tsx     — vue tableau avec marqueurs image/achat
 │   ├── MosaicView.tsx   — grille responsive (auto-fill) avec images CDN
 │   ├── CardDetail.tsx   — détail carte, swipe, édition, zoom image, upload, lien achat
 │   ├── CardImage.tsx    — composant image : CDN auto, override manuel, fallback
-│   ├── AddCardForm.tsx  — formulaire ajout avec sélecteur rareté visuel
+│   ├── AddCardForm.tsx  — formulaire ajout avec validation préfixes + sélecteur rareté
+│   ├── RarityPicker.tsx — sélecteur rareté partagé (pills + toggle Parallel)
+│   ├── RarityBadge.tsx  — badges colorés par rareté (exhaustive $match)
 │   ├── FilterPanel.tsx  — panneau filtres composables
 │   ├── SearchBar.tsx    — barre de recherche avec autocomplétion
 │   ├── CharactersPage.tsx — répertoire personnages
 │   ├── SideDrawer.tsx   — navigation latérale (Accueil, Personnages)
-│   ├── BackToTop.tsx    — bouton retour en haut
-│   └── RarityBadge.tsx  — badges colorés par rareté
-├── styles/app.css       — design flat sombre, optimisé iPhone
+│   └── BackToTop.tsx    — bouton retour en haut
+├── styles/app.css       — design flat sombre + light mode, optimisé iPhone
 public/
 ├── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
 └── variants-index.json  — index variantes pré-généré (2747 cartes avec variantes)
@@ -58,13 +82,14 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles, l'app affiche un écran de désambiguïsation. Deux modes : `import` (remplacement wishlist) et `add` (append).
 
 ### Résolution
-- `variantResolver.ts` filtre les variantes en cascade : rareté d'abord → série si explicite → filtre set pour standard
+- `services/VariantResolver.ts` filtre les variantes en cascade : rareté d'abord → série si explicite → filtre set pour standard
 - **Validation rareté** : vérifie la cohérence rareté app ↔ rareté dotgg (ex: "C" pour une carte SR → mismatch)
 - **Validation série** : série fournie mais invalide → `serieMismatch` → disambiguation avec warning
 - **Rareté "?"** : rareté vide = toutes les variantes proposées, avec multi-select (crée N entrées)
 - Si 1 seul candidat et pas de mismatch → auto-resolve silencieux
 - Si 0 candidats (rareté mismatch) → fallback sans filtre rareté → disambiguation avec `rarityMismatch: true`
-- **Filtre set intelligent** : exclut reprints d'autres extensions (OP, EB, ST, PRB) mais garde promos (pas de code set dans `cs`) et sets collectors. Gère les codes set entre crochets `[OP-09]` et les codes nus `OP-05`.
+- **Filtre set intelligent** : exclut reprints d'autres extensions (OP, EB, ST, PRB) mais garde promos (pas de code set dans `cs`) et sets collectors. Gère les codes set entre crochets `[OP-09]` et les codes nus `OP-05`. Supporte les séries combinées `[OP15-EB04]` via `extractAllFromCs`.
+- Pour SP : pas de filtre serie (serieMismatch ignoré — variantes SP vivent souvent dans d'autres sets)
 - Pour SP/Parallel : pas de filtre set (chaque suffixe = artwork unique, même cross-set)
 
 ### UI (`DisambiguationQueue.tsx`)
@@ -81,12 +106,14 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 - Pour régénérer : `./scripts/gen-variants-index.sh > public/variants-index.json`
 
 ## Système de raretés
-- **BaseRarity** : `C | UC | R | SR | SEC | L | SP` — SP est une rareté de base standalone (correspond à "SP CARD" dans dotgg)
-- **Modificateur** : Parallel/Alt (art alternatif) — composable avec C/UC/R/SR/SEC/L mais PAS avec SP
-- **"?"** : rareté non précisée (rarity vide) — toutes les variantes proposées en disambiguation
-- Stocké en string : "SR Parallel", "SP", "SEC", "" (vide = "?")
-- Parsé par `parseRarity()`, construit par `buildRarityString()` dans `rarity.ts`
-- ID carte : `{idcard}__{rarity}` (ex: `OP01-013__R Parallel`)
+Modélisé par `Rarity` TaggedEnum dans `domain/Rarity.ts` :
+- **Standard** : `{ base: C | UC | R | SR | SEC | L }` — rareté de base
+- **Parallel** : `{ base: C | UC | R | SR | SEC | L }` — art alternatif (composable avec Standard bases uniquement)
+- **SP** : `{}` — SP CARD standalone (correspond à "SP CARD" dans dotgg)
+- **Promo** : `{}` — carte promo (préfixe "P-"), auto-détecté via `SetCode.isPromoId`
+- **Unknown** : `{}` — rareté non précisée ("?") — toutes les variantes proposées en disambiguation
+- Parsé par `parseRarity()` (→ `Either<Rarity, RarityParseError>`), affiché par `displayRarity()`
+- ID carte (branded `CardId`) : `{idcard}__{rarity}` (ex: `OP01-013__R Parallel`)
 
 ## CSV source
 Le fichier `~/onepiece-tcg-wishlist-v3.csv` (hors repo) contient la wishlist maintenue manuellement. L'app peut l'importer via le bouton Import (remplace toutes les entrées).
