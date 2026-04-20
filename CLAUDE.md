@@ -40,7 +40,7 @@ src/
 ├── styles/app.css       — design flat sombre, optimisé iPhone
 public/
 ├── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
-└── variants-index.json  — index variantes pré-généré (1052 cartes avec 2+ variantes)
+└── variants-index.json  — index variantes pré-généré (2747 cartes avec variantes)
 scripts/
 └── gen-variants-index.sh — génère variants-index.json depuis l'API dotgg
 ```
@@ -55,26 +55,42 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 - Pour régénérer l'index SP : `curl -s "https://api.dotgg.gg/cgfw/getcards?game=onepiece" | python3 -c "import json,sys; d=json.load(sys.stdin); idx={c['id_normal']:c['id'][len(c['id_normal']):] for c in d if c.get('rarity')=='SP CARD' and c['id']!=c['id_normal']}; json.dump(idx,open('public/sp-index.json','w'),indent=2)"`
 
 ## Désambiguïsation des variantes
-À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles (ex: OP01-013 "R Parallel" → 4 images différentes), l'app affiche un écran de désambiguïsation :
-- **Queue** : liste des cartes ambiguës avec compteur, navigable librement. Affiche combien de cartes non-ambiguës seront importées automatiquement.
-- **Picker** : grille d'images des candidats (200px PC, 140px mobile), tap image = zoom carousel, bouton "Choisir" séparé
-- **Carousel** : overlay fullscreen avec swipe tactile, flèches PC, dots de navigation, bouton "Choisir cette variante"
-- L'utilisateur choisit la bonne image → auto-fill du nom canonique et de la rareté
-- "Terminer" n'importe que les cartes explicitement choisies (les non-résolues sont ignorées)
-- **Filtre set intelligent** : exclut les reprints d'autres extensions classiques (OP, EB, ST, PRB) mais garde les promos/events (pas de bracket dans `cs`) et les sets collectors (GC, TS, AC...)
-- L'index `public/variants-index.json` est pré-généré via `scripts/gen-variants-index.sh`
+À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles, l'app affiche un écran de désambiguïsation. Deux modes : `import` (remplacement wishlist) et `add` (append).
+
+### Résolution
+- `variantResolver.ts` filtre les variantes en cascade : rareté d'abord → série si explicite → filtre set pour standard
+- **Validation rareté** : vérifie la cohérence rareté app ↔ rareté dotgg (ex: "C" pour une carte SR → mismatch)
+- **Validation série** : série fournie mais invalide → `serieMismatch` → disambiguation avec warning
+- **Rareté "?"** : rareté vide = toutes les variantes proposées, avec multi-select (crée N entrées)
+- Si 1 seul candidat et pas de mismatch → auto-resolve silencieux
+- Si 0 candidats (rareté mismatch) → fallback sans filtre rareté → disambiguation avec `rarityMismatch: true`
+- **Filtre set intelligent** : exclut reprints d'autres extensions (OP, EB, ST, PRB) mais garde promos (pas de code set dans `cs`) et sets collectors. Gère les codes set entre crochets `[OP-09]` et les codes nus `OP-05`.
+- Pour SP/Parallel : pas de filtre set (chaque suffixe = artwork unique, même cross-set)
+
+### UI (`DisambiguationQueue.tsx`)
+- **Queue** : cartes groupées en 3 catégories (rareté/série inexistante, variantes multiples, rareté non précisée)
+- **Picker** : grille d'images, tap = zoom carousel, bouton "Choisir" séparé
+- **Carousel** : overlay fullscreen avec swipe tactile, flèches PC, dots
+- **Multi-select** : quand rareté "?", sélection multiple → crée N entrées avec les bonnes raretés
+- En mode import, le bouton "Importer" est actif dès qu'il y a des cartes non-ambiguës (pas besoin de tout désambiguïser)
+- Les cartes non résolues sont ignorées
+
+### Index
+- `public/variants-index.json` pré-généré via `scripts/gen-variants-index.sh`
+- Structure : `{ "OP09-004": { "name": "Shanks", "variants": [{ "s": "_p3", "r": "SP CARD", "cs": "[OP-09]" }, ...] } }`
 - Pour régénérer : `./scripts/gen-variants-index.sh > public/variants-index.json`
 
 ## Système de raretés
-La rareté d'une carte = **rareté de base** + **modificateurs optionnels** :
-- Bases : C, UC, R, SR, SEC, L (Leader)
-- Modificateurs : Parallel/Alt (art alternatif), SP (Special/promo)
-- Stocké en string dans le CSV/IndexedDB : ex "SR Parallel", "SP R", "SEC"
-- Parsé à l'affichage par `parseRarity()` dans `rarity.ts`
+- **BaseRarity** : `C | UC | R | SR | SEC | L | SP` — SP est une rareté de base standalone (correspond à "SP CARD" dans dotgg)
+- **Modificateur** : Parallel/Alt (art alternatif) — composable avec C/UC/R/SR/SEC/L mais PAS avec SP
+- **"?"** : rareté non précisée (rarity vide) — toutes les variantes proposées en disambiguation
+- Stocké en string : "SR Parallel", "SP", "SEC", "" (vide = "?")
+- Parsé par `parseRarity()`, construit par `buildRarityString()` dans `rarity.ts`
+- ID carte : `{idcard}__{rarity}` (ex: `OP01-013__R Parallel`)
 
 ## CSV source
 Le fichier `~/onepiece-tcg-wishlist-v3.csv` (hors repo) contient la wishlist maintenue manuellement. L'app peut l'importer via le bouton Import (remplace toutes les entrées).
-Champs : `serie,idcard,character,rarity,price,seller_url,favorite`
+Champs : `serie,idcard,character,rarity,price,seller_url,favorite,edition,image_suffix`
 
 ## Conventions
 - **Toujours utiliser les skills agent-browser** pour chercher des infos de cartes, prix, vendeurs sur Cardmarket ou tout autre site TCG. Ne pas utiliser WebFetch pour ces recherches.
@@ -267,7 +283,7 @@ La fiabilité prime sur le prix — on accepte de payer jusqu'à 5€ de plus po
 
 ### Étape 5 — Mettre à jour le CSV
 
-Pour chaque carte traitée, mettre à jour la ligne dans `~/onepiece-tcg-wishlist.csv` :
+Pour chaque carte traitée, mettre à jour la ligne dans `~/onepiece-tcg-wishlist-v3.csv` :
 - Colonne `price` = prix du vendeur choisi
 - Colonne `seller_url` = lien profil du vendeur (ex: `https://www.cardmarket.com/en/OnePiece/Users/NomVendeur`)
 
@@ -281,7 +297,7 @@ Revenir à l'étape 1 avec la carte suivante. Respecter le rythme (5-8s entre le
 |---|---|
 | SR, SEC, R, UC, C, L (Leader) | V1 ou sans suffixe |
 | SR Parallel, SEC Parallel, R Parallel, Leader Parallel | V2 |
-| SP R, SP UC, SP SR | Chercher dans les résultats (souvent set différent) |
+| SP | Chercher dans les résultats (souvent set différent) |
 
 **IMPORTANT — Vérifier la rareté** :
 - Sur la page produit Cardmarket, le champ "Rarity" indique la vraie rareté
@@ -304,10 +320,10 @@ Revenir à l'étape 1 avec la carte suivante. Respecter le rythme (5-8s entre le
 | OP09 | The-Four-Emperors |
 | OP10 | Royal-Blood |
 | OP11 | Emperors-in-the-New-World |
-| OP13 | ? (à découvrir) |
-| OP14 | ? (à découvrir) |
-| OP15 | ? (à découvrir) |
-| EB04 | ? (Extra Booster, à découvrir) |
+| OP13 | Carrying-on-his-Will |
+| OP14 | The-Azure-Seas-Seven |
+| OP15 | Adventure-on-Kamis-Island |
+| EB04 | Egghead-Crisis |
 
 Pour les sets JP, ajouter `-Japanese` au nom du set dans l'URL.
 

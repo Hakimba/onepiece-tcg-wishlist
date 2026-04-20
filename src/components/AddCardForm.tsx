@@ -1,49 +1,68 @@
 import { useState } from 'react';
-import type { Card } from '../types';
-import type { BaseRarity } from '../rarity';
-import { buildRarityString, RARITY_COLORS } from '../rarity';
+import { Option } from 'effect';
+import type { Card } from '../domain/Card';
+import { makeCard, normalizeIdCard } from '../domain/Card';
+import type { Rarity as RarityType } from '../domain/Rarity';
+import { Standard, Promo } from '../domain/Rarity';
+import { parsePrice } from '../domain/Price';
+import type { SetCode } from '../domain/SetCode';
+import * as SC from '../domain/SetCode';
+import RarityPicker from './RarityPicker';
 
 interface Props {
-  onAdd: (card: Omit<Card, 'id'>) => void;
+  onAdd: (card: Card) => void;
   onCancel: () => void;
-  error?: string;
+  error: Option.Option<string>;
+  validPrefixes: ReadonlySet<SetCode>;
 }
 
-const RARITIES: BaseRarity[] = ['C', 'UC', 'R', 'SR', 'SEC', 'L'];
-const VALID_ID_REGEX = /^[A-Z]{2,4}\d{1,2}-\d{3}[A-Z]?$/;
+const ID_STRUCTURE_REGEX = /^[A-Z]{1,4}\d{0,2}-\d{3}[A-Z]?$/;
 
-export default function AddCardForm({ onAdd, onCancel, error }: Props) {
+export default function AddCardForm({ onAdd, onCancel, error, validPrefixes }: Props) {
   const [serie, setSerie] = useState('');
   const [idcard, setIdcard] = useState('');
   const [character, setCharacter] = useState('');
-  const [baseRarity, setBaseRarity] = useState<BaseRarity>('R');
-  const [isParallel, setIsParallel] = useState(false);
-  const [isSP, setIsSP] = useState(false);
+  const [rarity, setRarity] = useState<RarityType>(Standard({ base: 'R' }));
   const [price, setPrice] = useState('');
   const [idError, setIdError] = useState('');
 
+  const idCardBranded = normalizeIdCard(idcard);
+  const setCode = SC.extractFromIdCard(idCardBranded);
+  const isPromoId = SC.isPromoId(idCardBranded);
+  const effectiveRarity = isPromoId ? Promo() : rarity;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const id = idcard.trim().toUpperCase();
+    const id = normalizeIdCard(idcard);
     if (!id) { setIdError('ID carte requis'); return; }
-    if (!VALID_ID_REGEX.test(id)) {
-      setIdError('Format invalide (ex: OP01-013)');
+    if (!ID_STRUCTURE_REGEX.test(id as string)) {
+      setIdError('Format invalide (ex: OP01-013, P-033)');
       return;
     }
-    const idPrefix = id.match(/^([A-Z]{2,4}\d{1,2})/)?.[1] ?? '';
-    if (serie.trim() && idPrefix !== serie.trim().toUpperCase()) {
-      setIdError(`Série incohérente avec l'ID (attendu: ${idPrefix})`);
+    const prefix = Option.getOrNull(setCode);
+    if (!prefix || !validPrefixes.has(prefix)) {
+      const display = prefix ?? (id as string).match(/^([A-Z]+\d*)/)?.[1] ?? id;
+      setIdError(`Préfixe inconnu "${display}" (ex: OP01, ST01, P, EB01)`);
+      return;
+    }
+    const prefixStr = String(prefix);
+    if (serie.trim() && prefixStr !== serie.trim().toUpperCase()) {
+      setIdError(`Série incohérente avec l'ID (attendu: ${prefixStr})`);
       return;
     }
     setIdError('');
-    onAdd({
-      serie: serie.trim() || idPrefix,
-      idcard: id,
-      character: character.trim(),
-      rarity: buildRarityString(baseRarity, isParallel, isSP),
-      price: price.trim(),
-    });
+    onAdd(
+      makeCard({
+        serie: serie.trim(),
+        idcard: id,
+        character: character.trim(),
+        rarity: effectiveRarity,
+        price: parsePrice(price.trim()),
+      }),
+    );
   };
+
+  const displayError = idError || Option.getOrElse(error, () => '');
 
   return (
     <div className="form-screen">
@@ -70,7 +89,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
             onChange={(e) => { setIdcard(e.target.value); setIdError(''); }}
             required
           />
-          {(idError || error) && <span className="field-error">{idError || error}</span>}
+          {displayError && <span className="field-error">{displayError}</span>}
         </div>
         <div className="form-field">
           <label>Personnage</label>
@@ -83,39 +102,7 @@ export default function AddCardForm({ onAdd, onCancel, error }: Props) {
         </div>
         <div className="form-field">
           <label>Rareté</label>
-          <div className="rarity-picker">
-            {RARITIES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                className={`rarity-pill${baseRarity === r ? ' selected' : ''}`}
-                style={{
-                  '--pill-color': RARITY_COLORS[r],
-                } as React.CSSProperties}
-                onClick={() => setBaseRarity(r)}
-              >
-                {r === 'L' ? 'Leader' : r}
-              </button>
-            ))}
-          </div>
-          <div className="rarity-toggles">
-            <label className="rarity-toggle">
-              <input
-                type="checkbox"
-                checked={isParallel}
-                onChange={(e) => setIsParallel(e.target.checked)}
-              />
-              <span className="toggle-label toggle-alt">Parallel / Alt</span>
-            </label>
-            <label className="rarity-toggle">
-              <input
-                type="checkbox"
-                checked={isSP}
-                onChange={(e) => setIsSP(e.target.checked)}
-              />
-              <span className="toggle-label toggle-sp">SP</span>
-            </label>
-          </div>
+          <RarityPicker rarity={rarity} onChange={setRarity} isPromo={isPromoId} />
         </div>
         <div className="form-field">
           <label>Prix</label>

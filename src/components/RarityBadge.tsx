@@ -1,7 +1,8 @@
-import { parseRarity, RARITY_COLORS } from '../rarity';
+import type { Rarity } from '../domain/Rarity';
+import { CATEGORY_COLORS, Rarity as R } from '../domain/Rarity';
 
 interface Props {
-  rarity: string;
+  rarity: Rarity;
   size?: 'xs' | 'sm' | 'md';
 }
 
@@ -11,41 +12,60 @@ const SIZE_MAP = {
   md: { fontSize: '0.85rem', padding: '0.2rem 0.55rem', gap: '0.3rem', tagFont: '0.7rem' },
 };
 
-export default function RarityBadge({ rarity, size = 'sm' }: Props) {
-  const parsed = parseRarity(rarity);
-  const color = RARITY_COLORS[parsed.base];
-  const s = SIZE_MAP[size];
-  const isDark = parsed.base === 'SEC';
+const basePill = (
+  label: string,
+  color: string,
+  s: typeof SIZE_MAP['sm'],
+  dark: boolean = false,
+) => (
+  <span
+    className="rarity-base"
+    style={{
+      background: color,
+      color: dark ? '#1a1a2e' : '#fff',
+      fontSize: s.fontSize,
+      padding: s.padding,
+    }}
+  >
+    {label}
+  </span>
+);
 
-  return (
-    <span className="rarity-badge" style={{ gap: s.gap }}>
-      <span
-        className="rarity-base"
-        style={{
-          background: color,
-          color: isDark ? '#1a1a2e' : '#fff',
-          fontSize: s.fontSize,
-          padding: s.padding,
-        }}
-      >
-        {parsed.base === 'L' ? 'Leader' : parsed.base}
+const renderRarity: (s: typeof SIZE_MAP['sm']) => (r: Rarity) => React.ReactNode = (s) =>
+  R.$match({
+    Unknown: () => basePill('?', CATEGORY_COLORS['?'], s),
+    SP: () => (
+      <span className="rarity-tag-sp" style={{ fontSize: s.tagFont, padding: s.padding }}>
+        SP
       </span>
-      {parsed.isParallel && (
-        <span
-          className="rarity-tag-alt"
-          style={{ fontSize: s.tagFont, padding: s.padding }}
-        >
+    ),
+    Promo: () => basePill('P', CATEGORY_COLORS['P'], s),
+    Standard: ({ base }) => basePill(
+      base === 'L' ? 'Leader' : base,
+      CATEGORY_COLORS[base],
+      s,
+      base === 'SEC',
+    ),
+    Parallel: ({ base }) => (
+      <>
+        {basePill(
+          base === 'L' ? 'Leader' : base,
+          CATEGORY_COLORS[base],
+          s,
+          base === 'SEC',
+        )}
+        <span className="rarity-tag-alt" style={{ fontSize: s.tagFont, padding: s.padding }}>
           ALT
         </span>
-      )}
-      {parsed.isSP && (
-        <span
-          className="rarity-tag-sp"
-          style={{ fontSize: s.tagFont, padding: s.padding }}
-        >
-          SP
-        </span>
-      )}
+      </>
+    ),
+  });
+
+export default function RarityBadge({ rarity, size = 'sm' }: Props) {
+  const s = SIZE_MAP[size];
+  return (
+    <span className="rarity-badge" style={{ gap: s.gap }}>
+      {renderRarity(s)(rarity)}
     </span>
   );
 }

@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 interface Props {
   query: string;
   onChange: (query: string) => void;
-  allCharacters: string[];
+  allCharacters: ReadonlyArray<string>;
 }
 
 export default function SearchBar({ query, onChange, allCharacters }: Props) {

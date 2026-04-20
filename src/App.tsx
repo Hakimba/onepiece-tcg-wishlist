@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Card, ViewMode, FilterState, PageId, SortPrice } from './types';
-import { loadCards, saveCards, addCard, updateCard, deleteCard, makeCardId } from './store';
-import { parseCSV, downloadCSV } from './csv';
-import { applyFilters, defaultFilters, hasActiveFilters } from './filters';
-import { loadSpIndex } from './imageResolver';
-import { loadVariantsIndex, resolveVariants } from './variantResolver';
-import type { VariantsIndex, AmbiguousCard } from './variantResolver';
+import { useEffect, useMemo } from 'react';
+import { Option, pipe } from 'effect';
+import { useAppStore } from './hooks/useAppStore';
+import { useTheme } from './hooks/useTheme';
+import { AppAction } from './state/AppAction';
+import { IdCard } from './domain/Card';
+import type { SetCode } from './domain/SetCode';
+import * as SC from './domain/SetCode';
+import type { ViewMode, SortPrice } from './state/AppState';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
@@ -17,266 +18,179 @@ import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
+import { useOnlineSync } from './hooks/useOnlineSync';
 import './styles/app.css';
 
 function App() {
-  const [cards, setCards] = useState<Card[]>([]);
-  const [view, setView] = useState<ViewMode>('list');
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState<PageId>('home');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [spIndex, setSpIndex] = useState<Map<string, string>>();
-  const [variantsIndex, setVariantsIndex] = useState<VariantsIndex>({});
-  const [sortPrice, setSortPrice] = useState<SortPrice>(null);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [disambiguationState, setDisambiguationState] = useState<{
-    ambiguous: AmbiguousCard[];
-    resolved: Card[];
-  } | null>(null);
-  const [addError, setAddError] = useState('');
+  const {
+    state,
+    dispatch,
+    cards,
+    filteredCards,
+    filtersActive,
+    allSeries,
+    allCharacters,
+    ctx,
+    ui,
+    handleImport,
+    handleExport,
+    handleAdd,
+    handleUpdate,
+    handleDelete,
+    handleToggleFavorite,
+    handleClear,
+    handleDisambiguationFinish,
+    handleSwipe,
+    handleSelectCharacter,
+  } = useAppStore();
 
-  const filtersActive = hasActiveFilters(filters) || searchQuery.trim() !== '' || showFavoritesOnly;
-  const filteredCards = useMemo(() => {
-    const byFilters = applyFilters(cards, filters);
-    let result = byFilters;
-    if (showFavoritesOnly) {
-      result = result.filter((c) => c.favorite);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter((c) =>
-        c.character.toLowerCase().includes(q) || c.idcard.toLowerCase().includes(q)
+  const { theme, toggleTheme } = useTheme();
+
+  useOnlineSync(cards, ctx?.spIndex);
+
+  const validPrefixes = useMemo((): ReadonlySet<SetCode> => {
+    const s = new Set<SetCode>();
+    if (!ctx) return s;
+    for (const id of Object.keys(ctx.variantsIndex)) {
+      pipe(
+        SC.extractFromIdCard(IdCard(id)),
+        Option.map((code) => s.add(code)),
       );
     }
-    if (sortPrice) {
-      const parsePrice = (p: string): number => {
-        const cleaned = p.replace(/[€\s]/g, '').replace(',', '.');
-        const match = cleaned.match(/[\d.]+/);
-        return match ? parseFloat(match[0]) : Infinity;
-      };
-      result = [...result].sort((a, b) => {
-        const pa = parsePrice(a.price);
-        const pb = parsePrice(b.price);
-        return sortPrice === 'asc' ? pa - pb : pb - pa;
-      });
-    }
-    return result;
-  }, [cards, filters, showFavoritesOnly, searchQuery, sortPrice]);
-  const allSeries = useMemo(() => [...new Set(cards.map((c) => c.serie))].sort(), [cards]);
-  const allCharacters = useMemo(
-    () => [...new Set(cards.map((c) => c.character).filter(Boolean))].sort(),
-    [cards]
-  );
+    return s;
+  }, [ctx]);
 
+  const detailCard = state._tag === 'CardDetail' ? filteredCards[state.index] : undefined;
+  const detailCardMissing = state._tag === 'CardDetail' && !detailCard;
   useEffect(() => {
-    Promise.all([loadCards(), loadSpIndex(), loadVariantsIndex()]).then(([c, sp, vi]) => {
-      setCards(c);
-      setSpIndex(sp);
-      setVariantsIndex(vi);
-      setLoading(false);
-    });
-  }, []);
+    if (detailCardMissing) dispatch(AppAction.DeselectCard());
+  }, [detailCardMissing, dispatch]);
 
-  const handleImport = useCallback(async (file: File) => {
-    const text = await file.text();
-    const imported = parseCSV(text);
-    const { resolved, ambiguous } = resolveVariants(imported, variantsIndex);
-    if (ambiguous.length > 0) {
-      setDisambiguationState({ ambiguous, resolved });
-    } else {
-      // Deduplicate resolved cards
-      const deduped = resolved.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
-      await saveCards(deduped);
-      setCards(deduped);
-    }
-  }, [variantsIndex]);
-
-  const handleExport = useCallback(() => {
-    downloadCSV(cards);
-  }, [cards]);
-
-  const handleAdd = useCallback(async (card: Omit<Card, 'id'>) => {
-    const newCard: Card = { ...card, id: makeCardId(card.idcard, card.rarity) };
-    const { resolved, ambiguous } = resolveVariants([newCard], variantsIndex, cards);
-    if (ambiguous.length > 0) {
-      setDisambiguationState({ ambiguous, resolved: cards });
-      setShowAdd(false);
-      setAddError('');
-    } else if (resolved.length === 0) {
-      setAddError('Cette carte existe déjà dans la wishlist');
-    } else {
-      const { cards: updated, duplicate } = await addCard(resolved[0]);
-      if (duplicate) {
-        setAddError('Cette carte existe déjà dans la wishlist');
-      } else {
-        setCards(updated);
-        setShowAdd(false);
-        setAddError('');
-      }
-    }
-  }, [variantsIndex, cards]);
-
-  const handleUpdate = useCallback(async (card: Card, oldId?: string) => {
-    const updated = await updateCard(card, oldId);
-    setCards(updated);
-  }, []);
-
-  const handleDelete = useCallback(async (id: string) => {
-    const updated = await deleteCard(id);
-    setCards(updated);
-    setSelectedIndex(null);
-  }, []);
-
-  const handleSelect = useCallback((index: number) => {
-    setSelectedIndex(index);
-  }, []);
-
-  const handleClear = useCallback(async () => {
-    await saveCards([]);
-    setCards([]);
-  }, []);
-
-  const handleToggleFavorite = useCallback(async (id: string) => {
-    const card = cards.find((c) => c.id === id);
-    if (!card) return;
-    const updated = await updateCard({ ...card, favorite: !card.favorite });
-    setCards(updated);
-  }, [cards]);
-
-  const handleDisambiguationFinish = useCallback(async (allCards: Card[]) => {
-    await saveCards(allCards);
-    setCards(allCards);
-    setDisambiguationState(null);
-  }, []);
-
-  const handleNavigate = useCallback((page: PageId) => {
-    setCurrentPage(page);
-    setDrawerOpen(false);
-    setSelectedIndex(null);
-    setShowAdd(false);
-  }, []);
-
-  const handleSelectCharacter = useCallback((name: string) => {
-    setSearchQuery(name);
-    setCurrentPage('home');
-  }, []);
-
-  const handleSwipe = useCallback(
-    (direction: 'left' | 'right') => {
-      if (selectedIndex === null) return;
-      const next =
-        direction === 'right'
-          ? Math.min(selectedIndex + 1, filteredCards.length - 1)
-          : Math.max(selectedIndex - 1, 0);
-      setSelectedIndex(next);
-    },
-    [selectedIndex, filteredCards.length]
-  );
-
-  if (loading) {
+  if (state._tag === 'Loading') {
     return <div className="loading">Chargement...</div>;
   }
 
-  if (disambiguationState) {
+  if (state._tag === 'Disambiguation') {
     return (
       <DisambiguationQueue
-        ambiguous={disambiguationState.ambiguous}
-        resolved={disambiguationState.resolved}
+        ambiguous={state.ambiguous}
+        resolved={state.resolved}
+        mode={state.mode}
         onFinish={handleDisambiguationFinish}
-        onCancel={() => setDisambiguationState(null)}
+        onCancel={() => dispatch(AppAction.CancelDisambiguation())}
       />
     );
   }
 
+  if (!ctx || !ui) return null;
+
   const drawer = (
     <SideDrawer
-      open={drawerOpen}
-      currentPage={currentPage}
-      onNavigate={handleNavigate}
-      onClose={() => setDrawerOpen(false)}
+      open={ui.drawerOpen}
+      currentPage={state._tag === 'Characters' ? 'characters' : 'home'}
+      onNavigate={(page) => dispatch(AppAction.Navigate({ page }))}
+      onClose={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, drawerOpen: false }) }))}
     />
   );
 
-  if (selectedIndex !== null && filteredCards[selectedIndex]) {
+  if (state._tag === 'CardDetail') {
+    if (!detailCard) return null;
     return (
       <>
         {drawer}
         <CardDetail
-          card={filteredCards[selectedIndex]}
-          onBack={() => setSelectedIndex(null)}
+          card={detailCard}
+          onBack={() => dispatch(AppAction.DeselectCard())}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onToggleFavorite={handleToggleFavorite}
           onSwipe={handleSwipe}
-          hasPrev={selectedIndex > 0}
-          hasNext={selectedIndex < filteredCards.length - 1}
-          spIndex={spIndex}
+          hasPrev={state.index > 0}
+          hasNext={state.index < filteredCards.length - 1}
+          spIndex={ctx.spIndex}
         />
       </>
     );
   }
 
-  if (showAdd) {
+  if (state._tag === 'AddCard') {
     return (
       <>
         {drawer}
-        <AddCardForm onAdd={handleAdd} onCancel={() => { setShowAdd(false); setAddError(''); }} error={addError} />
+        <AddCardForm
+          onAdd={handleAdd}
+          onCancel={() => dispatch(AppAction.HideAdd())}
+          error={state.error}
+          validPrefixes={validPrefixes}
+        />
       </>
     );
   }
 
-  if (currentPage === 'characters') {
+  if (state._tag === 'Characters') {
     return (
       <>
         {drawer}
         <CharactersPage
           cards={cards}
           onSelectCharacter={handleSelectCharacter}
-          onBack={() => setCurrentPage('home')}
+          onBack={() => dispatch(AppAction.Navigate({ page: 'home' }))}
         />
       </>
     );
   }
 
+  // Home
   return (
     <>
       {drawer}
       <div className="app">
         <Header
-          view={view}
-          onViewChange={setView}
-          onAdd={() => setShowAdd(true)}
+          view={ui.view}
+          onViewChange={(v: ViewMode) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, view: v }) }))}
+          onAdd={() => dispatch(AppAction.ShowAdd())}
           onImport={handleImport}
           onExport={handleExport}
           onClear={handleClear}
-          sortPrice={sortPrice}
-          onSortPrice={setSortPrice}
-          showFavoritesOnly={showFavoritesOnly}
-          onToggleFavorites={() => setShowFavoritesOnly((s) => !s)}
+          sortPrice={ui.sortPrice}
+          onSortPrice={(s: SortPrice) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, sortPrice: s }) }))}
+          showFavoritesOnly={ui.showFavoritesOnly}
+          onToggleFavorites={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, showFavoritesOnly: !u.showFavoritesOnly }) }))}
           count={cards.length}
           filteredCount={filteredCards.length}
           filtersActive={filtersActive}
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters((s) => !s)}
-          onMenuOpen={() => setDrawerOpen(true)}
+          showFilters={ui.showFilters}
+          onToggleFilters={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, showFilters: !u.showFilters }) }))}
+          onMenuOpen={() => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, drawerOpen: true }) }))}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
         <SearchBar
-          query={searchQuery}
-          onChange={setSearchQuery}
+          query={ui.searchQuery}
+          onChange={(q) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, searchQuery: q }) }))}
           allCharacters={allCharacters}
         />
-        {showFilters && (
-          <FilterPanel filters={filters} onChange={setFilters} allSeries={allSeries} />
+        {ui.showFilters && (
+          <FilterPanel
+            filters={ui.filters}
+            onChange={(f) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, filters: f }) }))}
+            allSeries={allSeries}
+          />
         )}
-        {view === 'list' ? (
-          <ListView cards={filteredCards} onSelect={handleSelect} onToggleFavorite={handleToggleFavorite} spIndex={spIndex} />
+        {ui.view === 'list' ? (
+          <ListView
+            cards={filteredCards}
+            onSelect={(i) => dispatch(AppAction.SelectCard({ index: i }))}
+            onToggleFavorite={handleToggleFavorite}
+            spIndex={ctx.spIndex}
+          />
         ) : (
-          <MosaicView cards={filteredCards} onSelect={handleSelect} onToggleFavorite={handleToggleFavorite} spIndex={spIndex} />
+          <MosaicView
+            cards={filteredCards}
+            onSelect={(i) => dispatch(AppAction.SelectCard({ index: i }))}
+            onToggleFavorite={handleToggleFavorite}
+            spIndex={ctx.spIndex}
+          />
         )}
         <BackToTop />
       </div>
