@@ -44,6 +44,7 @@ src/
 │   ├── useAppStore.ts   — hook principal (state + dispatch + derived + handlers)
 │   ├── useImageCache.ts — cache blob mémoire + IndexedDB, canvasToBlob
 │   ├── useOnlineSync.ts — sync images en arrière-plan à la reconnexion
+│   ├── useIsMobile.ts   — hook matchMedia (max-width: 599px) pour responsive
 │   ├── useBodyScrollLock.ts — lock scroll body (zoom, modales)
 │   └── useTheme.ts      — toggle light/dark mode
 ├── components/
@@ -58,6 +59,8 @@ src/
 │   ├── RarityBadge.tsx  — badges colorés par rareté (exhaustive $match)
 │   ├── FilterPanel.tsx  — panneau filtres composables
 │   ├── SearchBar.tsx    — barre de recherche avec autocomplétion
+│   ├── SerieBrowser.tsx  — import par série (grille desktop, swipe mobile conditionnel)
+│   ├── SerieSwipeView.tsx — UX swipe Tinder mobile (accept/skip/undo, tracking par clé)
 │   ├── CharactersPage.tsx — répertoire personnages
 │   ├── SideDrawer.tsx   — navigation latérale (Accueil, Personnages)
 │   └── BackToTop.tsx    — bouton retour en haut
