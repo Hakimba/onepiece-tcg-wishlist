@@ -1518,6 +1518,34 @@ body {
   text-align: center;
 }
 
+.disambiguation-hint-multi {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  font-style: italic;
+}
+
+.disambiguation-warning {
+  background: rgba(240, 192, 64, 0.15);
+  border: 1px solid rgba(240, 192, 64, 0.4);
+  color: #f0c040;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.disambiguation-section-label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.6rem 0 0.25rem;
+}
+
 .disambiguation-list {
   display: flex;
   flex-direction: column;
