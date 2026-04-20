@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { ViewMode, SortPrice } from '../state/AppState';
 import type { Theme } from '../hooks/useTheme';
 
@@ -6,7 +6,7 @@ interface Props {
   view: ViewMode;
   onViewChange: (v: ViewMode) => void;
   onAdd: () => void;
-  onImport: (file: File) => void;
+  onOpenImportModal: () => void;
   onExport: () => void;
   onClear: () => void;
   sortPrice: SortPrice;
@@ -23,8 +23,7 @@ interface Props {
   onToggleTheme: () => void;
 }
 
-export default function Header({ view, onViewChange, onAdd, onImport, onExport, onClear, sortPrice, onSortPrice, showFavoritesOnly, onToggleFavorites, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen, theme, onToggleTheme }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
+export default function Header({ view, onViewChange, onAdd, onOpenImportModal, onExport, onClear, sortPrice, onSortPrice, showFavoritesOnly, onToggleFavorites, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen, theme, onToggleTheme }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
@@ -32,14 +31,6 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
     const timer = setTimeout(() => setConfirmClear(false), 3000);
     return () => clearTimeout(timer);
   }, [confirmClear]);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onImport(file);
-      e.target.value = '';
-    }
-  };
 
   return (
     <header className="header">
@@ -133,7 +124,7 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
         </div>
         <div className="header-buttons">
           <button className="btn-add" onClick={onAdd}>+</button>
-          <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
+          <button className="btn-secondary" onClick={onOpenImportModal}>
             Import
           </button>
           <button className="btn-secondary" onClick={onExport}>Export</button>
@@ -151,13 +142,6 @@ export default function Header({ view, onViewChange, onAdd, onImport, onExport, 
             </button>
           )}
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv"
-          onChange={handleFile}
-          style={{ display: 'none' }}
-        />
       </div>
     </header>
   );

@@ -1,6 +1,7 @@
 import { Effect, Context, Layer, Data } from "effect"
 import type { SpIndex } from "./ImageResolver"
 import type { VariantsIndex } from "./VariantResolver"
+import type { SetLists } from "../domain/SetIndex"
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -62,5 +63,26 @@ export const VariantsIndexServiceLive = Layer.succeed(
   VariantsIndexService,
   VariantsIndexService.of({
     load: fetchJson<VariantsIndex>("variants-index.json"),
+  }),
+)
+
+// ---------------------------------------------------------------------------
+// SetLists Service
+// ---------------------------------------------------------------------------
+
+export class SetListsService extends Context.Tag("SetListsService")<
+  SetListsService,
+  {
+    readonly load: Effect.Effect<SetLists, FetchError>
+  }
+>() {}
+
+export const SetListsServiceLive = Layer.succeed(
+  SetListsService,
+  SetListsService.of({
+    load: Effect.catchAll(
+      fetchJson<SetLists>("set-lists.json"),
+      () => Effect.succeed({} as SetLists),
+    ),
   }),
 )

@@ -28,6 +28,7 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
           cards: action.cards,
           spIndex: action.spIndex,
           variantsIndex: action.variantsIndex,
+          setLists: action.setLists,
         },
         ui: defaultUIState,
       })

@@ -158,6 +158,22 @@ export function useAppStore() {
     [],
   )
 
+  const handleOpenImportModal = useCallback(() => {
+    dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, importModalOpen: true }) }))
+  }, [])
+
+  const handleCloseImportModal = useCallback(() => {
+    dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, importModalOpen: false }) }))
+  }, [])
+
+  const handleImportBySerie = useCallback(
+    (selectedCards: ReadonlyArray<Card>) => {
+      dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, importModalOpen: false }) }))
+      runEffect(AppEffects.importBySerie(selectedCards))
+    },
+    [runEffect],
+  )
+
   return {
     state,
     dispatch,
@@ -180,5 +196,8 @@ export function useAppStore() {
     handleDisambiguationFinish,
     handleSwipe,
     handleSelectCharacter,
+    handleOpenImportModal,
+    handleCloseImportModal,
+    handleImportBySerie,
   }
 }

@@ -18,6 +18,7 @@ import SideDrawer from './components/SideDrawer';
 import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
+import ImportModal from './components/ImportModal';
 import { useOnlineSync } from './hooks/useOnlineSync';
 import './styles/app.css';
 
@@ -42,6 +43,9 @@ function App() {
     handleDisambiguationFinish,
     handleSwipe,
     handleSelectCharacter,
+    handleOpenImportModal,
+    handleCloseImportModal,
+    handleImportBySerie,
   } = useAppStore();
 
   const { theme, toggleTheme } = useTheme();
@@ -144,12 +148,22 @@ function App() {
   return (
     <>
       {drawer}
+      {ui.importModalOpen && (
+        <ImportModal
+          onClose={handleCloseImportModal}
+          onImportCsv={handleImport}
+          onImportBySerie={handleImportBySerie}
+          variantsIndex={ctx.variantsIndex}
+          setLists={ctx.setLists}
+          existingCards={ctx.cards}
+        />
+      )}
       <div className="app">
         <Header
           view={ui.view}
           onViewChange={(v: ViewMode) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, view: v }) }))}
           onAdd={() => dispatch(AppAction.ShowAdd())}
-          onImport={handleImport}
+          onOpenImportModal={handleOpenImportModal}
           onExport={handleExport}
           onClear={handleClear}
           sortPrice={ui.sortPrice}
