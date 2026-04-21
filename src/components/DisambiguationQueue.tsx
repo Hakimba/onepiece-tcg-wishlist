@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Option } from 'effect';
 import type { Card } from '../domain/Card';
-import { makeCardId } from '../domain/Card';
+import { CharacterName, makeCardId } from '../domain/Card';
 import type { AmbiguousCard, DisambiguationMode } from '../domain/Disambiguation';
 import { isMultiSelect, toggleChoice } from '../domain/Disambiguation';
 import { fromDotgg, Unknown } from '../domain/Rarity';
@@ -69,7 +69,7 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
             ...item.card,
             id: newId,
             rarity: newRarity,
-            character: item.canonicalName || item.card.character,
+            character: CharacterName(item.canonicalName || item.card.character),
             imageSuffix: Option.some(chosen.suffix),
             edition: Option.some(chosen.cardSets),
           };

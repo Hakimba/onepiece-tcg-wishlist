@@ -1,8 +1,8 @@
 import { Data, Either, Option, pipe } from "effect"
 import type { Card } from "./Card"
 import { IdCard, makeCard } from "./Card"
-import type { Rarity } from "./Rarity"
-import { Rarity as R, Standard, Parallel, SP, Promo, Unknown } from "./Rarity"
+import type { Rarity, StandardBase } from "./Rarity"
+import { Rarity as R, STANDARD_BASES, Standard, Parallel, SP, Promo, Unknown } from "./Rarity"
 import { Empty } from "./Price"
 import type { VariantsIndex } from "../services/VariantResolver"
 import * as SC from "./SetCode"
@@ -30,27 +30,28 @@ export type ShareDecodeError = Data.TaggedEnum<{
 export const ShareDecodeError = Data.taggedEnum<ShareDecodeError>()
 
 // ---------------------------------------------------------------------------
-// Compact rarity encoding (1-2 chars)
-// C=0 UC=1 R=2 SR=3 SEC=4 L=5 SP=6 P=7 ?=8
-// Parallel: append "p" → 0p 1p 2p 3p 4p 5p
+// Compact rarity encoding (1-2 chars) — source de verite unique.
+// STANDARD_BASES definit l'ordre : C=0 UC=1 R=2 SR=3 SEC=4 L=5. SP=6 P=7 ?=8.
+// Parallel : suffixe "p" (ex: "3p" = SR Parallel).
+// RARITY_TO_CODE encode via $match exhaustif, codeToRarity decode depuis le meme STANDARD_BASES.
 // ---------------------------------------------------------------------------
 
+const BASE_INDEX = Object.fromEntries(STANDARD_BASES.map((b, i) => [b, String(i)])) as Record<StandardBase, string>
+
 const RARITY_TO_CODE: (r: Rarity) => string = R.$match({
-  Standard: ({ base }) => ({ C: "0", UC: "1", R: "2", SR: "3", SEC: "4", L: "5" })[base],
-  Parallel: ({ base }) => ({ C: "0p", UC: "1p", R: "2p", SR: "3p", SEC: "4p", L: "5p" })[base],
+  Standard: ({ base }) => BASE_INDEX[base],
+  Parallel: ({ base }) => `${BASE_INDEX[base]}p`,
   SP: () => "6",
   Promo: () => "7",
   Unknown: () => "8",
 })
 
-const BASE_FROM_CODE = ["C", "UC", "R", "SR", "SEC", "L"] as const
-
 const codeToRarity = (code: string): Rarity => {
   const isP = code.endsWith("p")
   const digit = isP ? code.slice(0, -1) : code
   const idx = parseInt(digit, 10)
-  if (idx >= 0 && idx <= 5) {
-    const base = BASE_FROM_CODE[idx]
+  if (idx >= 0 && idx < STANDARD_BASES.length) {
+    const base = STANDARD_BASES[idx]
     return isP ? Parallel({ base }) : Standard({ base })
   }
   if (idx === 6) return SP()

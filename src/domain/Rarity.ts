@@ -11,7 +11,9 @@ const isStandardBase = (s: string): s is StandardBase =>
   (STANDARD_BASES as readonly string[]).includes(s)
 
 // ---------------------------------------------------------------------------
-// Rarity — type somme (SP + Parallel impossible par construction)
+// Rarity — type somme discrimine (equivalent OCaml : type rarity = Standard of base | Parallel of base | SP | Promo | Unknown)
+// SP + Parallel ne peut pas exister par construction — pas de "SP Parallel" invalide.
+// Data.TaggedEnum genere le discriminant `_tag` et le pattern matching exhaustif via `$match`.
 // ---------------------------------------------------------------------------
 
 export type Rarity = Data.TaggedEnum<{
@@ -104,40 +106,14 @@ export const displayRarity: (r: Rarity) => string = Rarity.$match({
 })
 
 // ---------------------------------------------------------------------------
-// Queries (total via match — adding a variant = compile error everywhere)
+// Queries — predicats simples via _tag (discriminant garanti par TaggedEnum)
+// getBase utilise $match car le retour depend du contenu du variant, pas juste du tag.
 // ---------------------------------------------------------------------------
 
-export const isParallel: (r: Rarity) => boolean = Rarity.$match({
-  Standard: () => false,
-  Parallel: () => true,
-  SP: () => false,
-  Promo: () => false,
-  Unknown: () => false,
-})
-
-export const isSP: (r: Rarity) => boolean = Rarity.$match({
-  Standard: () => false,
-  Parallel: () => false,
-  SP: () => true,
-  Promo: () => false,
-  Unknown: () => false,
-})
-
-export const isPromo: (r: Rarity) => boolean = Rarity.$match({
-  Standard: () => false,
-  Parallel: () => false,
-  SP: () => false,
-  Promo: () => true,
-  Unknown: () => false,
-})
-
-export const isUnknown: (r: Rarity) => boolean = Rarity.$match({
-  Standard: () => false,
-  Parallel: () => false,
-  SP: () => false,
-  Promo: () => false,
-  Unknown: () => true,
-})
+export const isParallel = (r: Rarity): boolean => r._tag === "Parallel"
+export const isSP = (r: Rarity): boolean => r._tag === "SP"
+export const isPromo = (r: Rarity): boolean => r._tag === "Promo"
+export const isUnknown = (r: Rarity): boolean => r._tag === "Unknown"
 
 export const getBase: (r: Rarity) => Option.Option<StandardBase> = Rarity.$match({
   Standard: ({ base }) => Option.some(base),

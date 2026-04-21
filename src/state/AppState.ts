@@ -52,20 +52,9 @@ export const defaultUIState: UIState = {
 }
 
 // ---------------------------------------------------------------------------
-// AppPage — state machine (type somme)
-//
-// Each variant carries exactly the data it needs.
-// Impossible to be on CardDetail without an index.
-// Impossible to be in Disambiguation without ambiguous + mode.
-//
-// OCaml equivalent:
-//   type app_page =
-//     | Loading
-//     | Home of app_context * ui_state
-//     | CardDetail of app_context * ui_state * int
-//     | AddCard of app_context * ui_state * string option
-//     | Characters of app_context * ui_state
-//     | Disambiguation of app_context * ui_state * ambiguous_card list * card list * disambiguation_mode
+// AppPage — state machine de l'app. Chaque variant porte exactement les donnees
+// necessaires a cet ecran. Impossible d'etre sur CardDetail sans un index valide.
+// Ajouter un variant force a traiter le cas dans getCtx, getUI, withCtx, withUI et le reducer.
 // ---------------------------------------------------------------------------
 
 export type AppPage = Data.TaggedEnum<{
@@ -116,11 +105,28 @@ export const getCtxUI = (page: AppPage): Option.Option<readonly [AppContext, UIS
     Option.flatMap((ctx) => pipe(getUI(page), Option.map((ui) => [ctx, ui] as const))),
   )
 
-export const withCtx = (page: AppPage, ctx: AppContext): AppPage =>
-  page._tag === "Loading" ? page : { ...page, ctx } as AppPage
+// withCtx/withUI : $match exhaustif au lieu de `as AppPage` cast — ajouter un variant = erreur compile ici
+export const withCtx: (page: AppPage, ctx: AppContext) => AppPage = (page, ctx) =>
+  AppPage.$match({
+    Loading: () => page,
+    Home: (p) => AppPage.Home({ ...p, ctx }),
+    CardDetail: (p) => AppPage.CardDetail({ ...p, ctx }),
+    AddCard: (p) => AppPage.AddCard({ ...p, ctx }),
+    Characters: (p) => AppPage.Characters({ ...p, ctx }),
+    Disambiguation: (p) => AppPage.Disambiguation({ ...p, ctx }),
+    SharedView: (p) => AppPage.SharedView({ ...p, ctx }),
+  })(page)
 
-export const withUI = (page: AppPage, ui: UIState): AppPage =>
-  page._tag === "Loading" ? page : { ...page, ui } as AppPage
+export const withUI: (page: AppPage, ui: UIState) => AppPage = (page, ui) =>
+  AppPage.$match({
+    Loading: () => page,
+    Home: (p) => AppPage.Home({ ...p, ui }),
+    CardDetail: (p) => AppPage.CardDetail({ ...p, ui }),
+    AddCard: (p) => AppPage.AddCard({ ...p, ui }),
+    Characters: (p) => AppPage.Characters({ ...p, ui }),
+    Disambiguation: (p) => AppPage.Disambiguation({ ...p, ui }),
+    SharedView: (p) => AppPage.SharedView({ ...p, ui }),
+  })(page)
 
 export const withCards = (page: AppPage, cards: ReadonlyArray<Card>): AppPage =>
   pipe(

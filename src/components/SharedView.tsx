@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
 import type { CardId } from "../domain/Card"
@@ -11,6 +11,7 @@ import type { SpIndex } from "../services/ImageResolver"
 import { resolveImageUrl } from "../services/ImageResolver"
 import type { Theme } from "../hooks/useTheme"
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock"
+import { useSwipeGesture } from "../hooks/useSwipeGesture"
 import ListView from "./ListView"
 import MosaicView from "./MosaicView"
 import FilterPanel from "./FilterPanel"
@@ -197,11 +198,17 @@ function SharedCardDetail({ card, index, total, spIndex, onBack, onNavigate, zoo
   const hasPrev = index > 0
   const hasNext = index < total - 1
 
-  const [dragX, setDragX] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const touchStartX = useRef<number | null>(null)
-  const touchStartY = useRef<number | null>(null)
-  const isHorizontalSwipe = useRef<boolean | null>(null)
+  const handleSwipe = useCallback((direction: "left" | "right") => {
+    if (direction === "left" && hasPrev) onNavigate(index - 1)
+    else if (direction === "right" && hasNext) onNavigate(index + 1)
+  }, [hasPrev, hasNext, index, onNavigate])
+
+  const { dragX, isDragging, onTouchStart, onTouchMove, onTouchEnd } = useSwipeGesture({
+    onSwipe: handleSwipe,
+    canSwipeLeft: hasPrev,
+    canSwipeRight: hasNext,
+    enabled: !zoomed,
+  })
 
   useBodyScrollLock(zoomed)
 
@@ -221,42 +228,6 @@ function SharedCardDetail({ card, index, total, spIndex, onBack, onNavigate, zoo
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
   }, [zoomed, onZoom])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    isHorizontalSwipe.current = null
-    setIsDragging(true)
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return
-    const deltaX = e.touches[0].clientX - touchStartX.current
-    const deltaY = e.touches[0].clientY - touchStartY.current
-    if (isHorizontalSwipe.current === null) {
-      if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return
-      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY)
-      if (!isHorizontalSwipe.current) { setIsDragging(false); return }
-    }
-    if (!isHorizontalSwipe.current) return
-    let x = deltaX
-    if ((x > 0 && !hasPrev) || (x < 0 && !hasNext)) x = x / 3
-    setDragX(x)
-  }, [hasPrev, hasNext])
-
-  const handleTouchEnd = useCallback(() => {
-    if (touchStartX.current === null) return
-    touchStartX.current = null
-    touchStartY.current = null
-    if (!isHorizontalSwipe.current) { setIsDragging(false); setDragX(0); return }
-    if (Math.abs(dragX) > 100) {
-      const direction = dragX < 0 ? "right" : "left"
-      if (direction === "left" && hasPrev) { onNavigate(index - 1); setIsDragging(false); setDragX(0); return }
-      if (direction === "right" && hasNext) { onNavigate(index + 1); setIsDragging(false); setDragX(0); return }
-    }
-    setIsDragging(false)
-    setDragX(0)
-  }, [dragX, hasPrev, hasNext, index, onNavigate])
 
   const imageUrlOpt = resolveImageUrl(card, spIndex ?? EMPTY_SP_INDEX)
   const imageUrl = Option.getOrNull(imageUrlOpt)
@@ -279,9 +250,9 @@ function SharedCardDetail({ card, index, total, spIndex, onBack, onNavigate, zoo
           transition: isDragging ? "none" : "transform 0.15s ease-out",
           willChange: isDragging ? "transform" : undefined,
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         <div className="detail-image-section">
           {imageUrl ? (

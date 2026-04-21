@@ -3,11 +3,12 @@ import type { FilterState } from '../domain/Filter';
 import { defaultFilters } from '../domain/Filter';
 import type { RarityCategory } from '../domain/Rarity';
 import { RARITY_CATEGORIES, CATEGORY_COLORS } from '../domain/Rarity';
+import type { SetCode } from '../domain/SetCode';
 
 interface Props {
   filters: FilterState;
   onChange: (f: FilterState) => void;
-  allSeries: ReadonlyArray<string>;
+  allSeries: ReadonlyArray<SetCode>;
 }
 
 const CATEGORY_LABELS: Record<RarityCategory, string> = {
@@ -15,7 +16,7 @@ const CATEGORY_LABELS: Record<RarityCategory, string> = {
 };
 
 export default function FilterPanel({ filters, onChange, allSeries }: Props) {
-  const toggleSerie = (s: string) => {
+  const toggleSerie = (s: SetCode) => {
     const series = filters.series.includes(s)
       ? filters.series.filter((x) => x !== s)
       : [...filters.series, s];

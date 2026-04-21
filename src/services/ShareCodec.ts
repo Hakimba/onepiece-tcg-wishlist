@@ -2,6 +2,9 @@ import { Either } from "effect"
 import { deflateSync, inflateSync } from "fflate"
 import { ShareDecodeError } from "../domain/SharedWishlist"
 
+// Compression synchrone (pas d'async) — le payload est toujours sub-1KB.
+// deflateSync niveau 9 + base64url (URL-safe, sans padding).
+
 // ---------------------------------------------------------------------------
 // Base64url (URL-safe, no padding)
 // ---------------------------------------------------------------------------
@@ -12,17 +15,17 @@ const toBase64url = (bytes: Uint8Array): string => {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
 
-const fromBase64url = (s: string): Either.Either<Uint8Array, ShareDecodeError> => {
-  try {
-    const padded = s.replace(/-/g, "+").replace(/_/g, "/")
-    const binary = atob(padded)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    return Either.right(bytes)
-  } catch {
-    return Either.left(ShareDecodeError.InvalidHash({ raw: s }))
-  }
-}
+const fromBase64url = (s: string): Either.Either<Uint8Array, ShareDecodeError> =>
+  Either.try({
+    try: () => {
+      const padded = s.replace(/-/g, "+").replace(/_/g, "/")
+      const binary = atob(padded)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      return bytes
+    },
+    catch: () => ShareDecodeError.InvalidHash({ raw: s }),
+  })
 
 // ---------------------------------------------------------------------------
 // Encode: text → deflate → base64url
@@ -39,11 +42,9 @@ export const encode = (text: string): string => {
 // ---------------------------------------------------------------------------
 
 export const decode = (encoded: string): Either.Either<string, ShareDecodeError> =>
-  Either.flatMap(fromBase64url(encoded), (compressed) => {
-    try {
-      const bytes = inflateSync(compressed)
-      return Either.right(new TextDecoder().decode(bytes))
-    } catch (cause) {
-      return Either.left(ShareDecodeError.DecompressionFailed({ cause }))
-    }
-  })
+  Either.flatMap(fromBase64url(encoded), (compressed) =>
+    Either.try({
+      try: () => new TextDecoder().decode(inflateSync(compressed)),
+      catch: (cause) => ShareDecodeError.DecompressionFailed({ cause }),
+    }),
+  )
