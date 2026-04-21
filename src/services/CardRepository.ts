@@ -96,20 +96,21 @@ export const CardRepositoryLive = Layer.succeed(
       }),
 
     add: (card) =>
-      Effect.tryPromise({
-        try: async () => {
-          const cards = (await get<Card[]>(CARDS_KEY)) ?? []
-          if (cards.some((c: Card) => c.id === card.id)) {
-            throw new DuplicateCardError({ cardId: card.id })
-          }
-          const updated = [...cards, card]
-          await set(CARDS_KEY, updated)
-          return updated as ReadonlyArray<Card>
-        },
-        catch: (cause) =>
-          cause instanceof DuplicateCardError
-            ? cause
-            : new StorageError({ cause }),
+      Effect.gen(function* () {
+        const cards = yield* Effect.tryPromise({
+          try: () => get<Card[]>(CARDS_KEY),
+          catch: (cause) => new StorageError({ cause }),
+        })
+        const existing = cards ?? []
+        if (existing.some((c: Card) => c.id === card.id)) {
+          return yield* Effect.fail(new DuplicateCardError({ cardId: card.id }))
+        }
+        const updated = [...existing, card]
+        yield* Effect.tryPromise({
+          try: () => set(CARDS_KEY, updated),
+          catch: (cause) => new StorageError({ cause }),
+        })
+        return updated as ReadonlyArray<Card>
       }),
 
     update: (card, oldId) =>

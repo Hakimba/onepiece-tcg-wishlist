@@ -15,8 +15,9 @@ const withCtxUI = (state: AppPage, f: (ctx: Parameters<typeof AP.Home>[0]["ctx"]
   )
 
 // ---------------------------------------------------------------------------
-// Reducer : (AppPage, AppAction) -> AppPage
-// Pure function, no side effects.
+// Reducer pur : (AppPage, AppAction) -> AppPage. Aucun side effect.
+// Les side effects sont geres dans AppEffects via Effect.gen.
+// Le switch est exhaustif — ajouter un variant a AppAction sans le traiter ici = erreur compile.
 // ---------------------------------------------------------------------------
 
 export const appReducer = (state: AppPage, action: AppAction): AppPage => {
@@ -117,5 +118,10 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
       return state._tag === "AddCard"
         ? { ...state, error: Option.none() }
         : state
+
+    default: {
+      const _exhaustive: never = action
+      return _exhaustive
+    }
   }
 }

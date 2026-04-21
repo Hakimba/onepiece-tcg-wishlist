@@ -1,7 +1,7 @@
 import { Data, Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
 import type { IdCard } from "../domain/Card"
-import { makeCardId } from "../domain/Card"
+import { CharacterName, makeCardId } from "../domain/Card"
 import type { Rarity } from "../domain/Rarity"
 import * as R from "../domain/Rarity"
 import type { AmbiguousCard, VariantCandidate } from "../domain/Disambiguation"
@@ -45,13 +45,14 @@ export type ResolutionResult = Data.TaggedEnum<{
     readonly reason: AmbiguityReason
   }
   AlreadyInWishlist: {}
-  NotInIndex: { readonly card: Card }
 }>
 
 export const ResolutionResult = Data.taggedEnum<ResolutionResult>()
 
 // ---------------------------------------------------------------------------
-// Pipeline stages — each is a pure function
+// Pipeline de resolution en 4 etapes : rarete → serie → set → dedup.
+// Chaque etape est une fonction pure qui filtre les variantes candidates.
+// Si le pipeline tombe a 0 candidats, on fallback sans filtre rarete → disambiguation.
 // ---------------------------------------------------------------------------
 
 /** Stage 1: Filter variants by rarity */
@@ -230,10 +231,16 @@ const resolveOne = (
 const fillSerie = (card: Card): Card =>
   card.serie
     ? card
-    : { ...card, serie: pipe(SC.extractFromIdCard(card.idcard), Option.map(String), Option.getOrElse(() => "")) }
+    : pipe(
+        SC.extractFromIdCard(card.idcard),
+        Option.match({
+          onNone: () => card,
+          onSome: (serie) => ({ ...card, serie }),
+        }),
+      )
 
 const fillCharacter = (card: Card, name: string): Card =>
-  card.character.trim() ? card : { ...card, character: name || card.character }
+  card.character.trim() ? card : { ...card, character: CharacterName(name || card.character) }
 
 const applyResolvedVariant = (card: Card, v: VariantEntry, name: string): Card => {
   const filled = fillCharacter(fillSerie(card), name)
@@ -293,7 +300,6 @@ export const resolveVariants = (
         ambiguous.push(makeAmbiguousCard({ card: c, candidates, canonicalName, reason }))
       },
       AlreadyInWishlist: () => { /* skip */ },
-      NotInIndex: ({ card: c }) => { resolved.push(c) },
     })(result)
   }
 

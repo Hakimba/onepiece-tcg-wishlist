@@ -2,9 +2,11 @@ import { Brand, Option } from "effect"
 import type { Rarity } from "./Rarity"
 import { displayRarity } from "./Rarity"
 import type { Price } from "./Price"
+import { SetCode } from "./SetCode"
 
 // ---------------------------------------------------------------------------
-// Branded types — prevent accidental mixing of strings
+// Branded types — Brand.nominal cree un type fantome qui empeche de passer un string
+// brut la ou un identifiant type est attendu. Le cout runtime est zero (identity function).
 // ---------------------------------------------------------------------------
 
 export type CardId = string & Brand.Brand<"CardId">
@@ -16,6 +18,9 @@ export const IdCard = Brand.nominal<IdCard>()
 export const normalizeIdCard = (raw: string): IdCard =>
   IdCard(raw.trim().toUpperCase())
 
+export type CharacterName = string & Brand.Brand<"CharacterName">
+export const CharacterName = Brand.nominal<CharacterName>()
+
 // ---------------------------------------------------------------------------
 // Card — the core domain entity
 // ---------------------------------------------------------------------------
@@ -23,8 +28,8 @@ export const normalizeIdCard = (raw: string): IdCard =>
 export interface Card {
   readonly id: CardId
   readonly idcard: IdCard
-  readonly serie: string
-  readonly character: string
+  readonly serie: SetCode
+  readonly character: CharacterName
   readonly rarity: Rarity
   readonly price: Price
   readonly image: Option.Option<string>
@@ -58,8 +63,8 @@ export const makeCard = (params: {
   return {
     id: makeCardId(idcard, rarity),
     idcard,
-    serie: params.serie,
-    character: params.character,
+    serie: SetCode(params.serie),
+    character: CharacterName(params.character),
     rarity,
     price: params.price,
     image: Option.fromNullable(params.image),

@@ -10,6 +10,10 @@ import type { CardId } from "../domain/Card"
 import { AppAction } from "./AppAction"
 import type { AppAction as AppActionType } from "./AppAction"
 
+// Les constructeurs TaggedEnum retournent le type specifique du variant (ex: `Loaded`),
+// pas l'union `AppAction`. Ce helper widene le type sans cast `as`.
+const action = <A extends AppActionType>(a: A): AppActionType => a
+
 // ---------------------------------------------------------------------------
 // Load app — initial fetch of cards + indices
 // ---------------------------------------------------------------------------
@@ -27,7 +31,7 @@ export const loadApp = Effect.gen(function* () {
     Effect.orElseSucceed(slService.load, () => ({}) as import("../domain/SetIndex").SetLists),
   ], { concurrency: "unbounded" })
 
-  return AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }) as AppActionType
+  return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }))
 })
 
 // ---------------------------------------------------------------------------
@@ -51,15 +55,15 @@ export const loadSharedView = (encoded: string) =>
     if (Either.isLeft(decoded)) {
       const repo = yield* CardRepository
       const cards = yield* repo.loadAll
-      return AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }) as AppActionType
+      return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }))
     }
 
-    return AppAction.SharedLoaded({
+    return action(AppAction.SharedLoaded({
       cards: decoded.right,
       spIndex,
       variantsIndex,
       setLists,
-    }) as AppActionType
+    }))
   })
 
 // ---------------------------------------------------------------------------
@@ -75,18 +79,18 @@ export const importCsv = (
     const parsed = parseCsv(text)
 
     if (Either.isLeft(parsed)) {
-      return AppAction.SetError({ error: `Erreur CSV: ${parsed.left._tag}` }) as AppActionType
+      return action(AppAction.SetError({ error: `Erreur CSV: ${parsed.left._tag}` }))
     }
 
     const imported = parsed.right
     const { resolved, ambiguous } = resolveVariants(imported, variantsIndex)
 
     if (ambiguous.length > 0) {
-      return AppAction.StartDisambiguation({
+      return action(AppAction.StartDisambiguation({
         ambiguous,
         resolved,
         mode: "import",
-      }) as AppActionType
+      }))
     }
 
     const seen = new Set<string>()
@@ -98,7 +102,7 @@ export const importCsv = (
     const repo = yield* CardRepository
     yield* repo.saveAll(deduped)
 
-    return AppAction.CardsUpdated({ cards: deduped }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: deduped }))
   })
 
 // ---------------------------------------------------------------------------
@@ -114,15 +118,15 @@ export const addCard = (
     const { resolved, ambiguous } = resolveVariants([card], variantsIndex, existingCards)
 
     if (ambiguous.length > 0) {
-      return AppAction.StartDisambiguation({
+      return action(AppAction.StartDisambiguation({
         ambiguous,
         resolved: [],
         mode: "add",
-      }) as AppActionType
+      }))
     }
 
     if (resolved.length === 0) {
-      return AppAction.SetError({ error: "Cette carte existe déjà dans la wishlist" }) as AppActionType
+      return action(AppAction.SetError({ error: "Cette carte existe déjà dans la wishlist" }))
     }
 
     const repo = yield* CardRepository
@@ -131,12 +135,12 @@ export const addCard = (
     if (Either.isLeft(result)) {
       const err = result.left
       if (err._tag === "DuplicateCardError") {
-        return AppAction.SetError({ error: "Cette carte existe déjà dans la wishlist" }) as AppActionType
+        return action(AppAction.SetError({ error: "Cette carte existe déjà dans la wishlist" }))
       }
       return yield* Effect.fail(err)
     }
 
-    return AppAction.CardsUpdated({ cards: result.right }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: result.right }))
   })
 
 // ---------------------------------------------------------------------------
@@ -147,7 +151,7 @@ export const updateCard = (card: Card, oldId: Option.Option<CardId>) =>
   Effect.gen(function* () {
     const repo = yield* CardRepository
     const updated = yield* repo.update(card, Option.getOrUndefined(oldId))
-    return AppAction.CardsUpdated({ cards: updated }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: updated }))
   })
 
 // ---------------------------------------------------------------------------
@@ -158,7 +162,7 @@ export const deleteCard = (id: CardId) =>
   Effect.gen(function* () {
     const repo = yield* CardRepository
     const updated = yield* repo.remove(id)
-    return AppAction.CardsUpdated({ cards: updated }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: updated }))
   })
 
 // ---------------------------------------------------------------------------
@@ -168,11 +172,11 @@ export const deleteCard = (id: CardId) =>
 export const toggleFavorite = (cards: ReadonlyArray<Card>, id: CardId) =>
   Effect.gen(function* () {
     const card = cards.find((c) => c.id === id)
-    if (!card) return AppAction.CardsUpdated({ cards }) as AppActionType
+    if (!card) return action(AppAction.CardsUpdated({ cards }))
     const updated = { ...card, favorite: !card.favorite }
     const repo = yield* CardRepository
     const newCards = yield* repo.update(updated)
-    return AppAction.CardsUpdated({ cards: newCards }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: newCards }))
   })
 
 // ---------------------------------------------------------------------------
@@ -186,7 +190,7 @@ export const importBySerie = (
     if (selectedCards.length === 0) {
       const repo = yield* CardRepository
       const current = yield* repo.loadAll
-      return AppAction.CardsUpdated({ cards: current }) as AppActionType
+      return action(AppAction.CardsUpdated({ cards: current }))
     }
 
     const repo = yield* CardRepository
@@ -195,7 +199,7 @@ export const importBySerie = (
     const merged = [...current, ...selectedCards.filter((c: Card) => !existingIds.has(c.id))]
     yield* repo.saveAll(merged)
 
-    return AppAction.CardsUpdated({ cards: merged }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: merged }))
   })
 
 // ---------------------------------------------------------------------------
@@ -205,7 +209,7 @@ export const importBySerie = (
 export const clearCards = Effect.gen(function* () {
   const repo = yield* CardRepository
   yield* repo.saveAll([])
-  return AppAction.CardsUpdated({ cards: [] }) as AppActionType
+  return action(AppAction.CardsUpdated({ cards: [] }))
 })
 
 // ---------------------------------------------------------------------------
@@ -226,10 +230,10 @@ export const finishDisambiguation = (
         if (!merged.some((x) => x.id === c.id)) merged.push(c)
       }
       yield* repo.saveAll(merged)
-      return AppAction.CardsUpdated({ cards: merged }) as AppActionType
+      return action(AppAction.CardsUpdated({ cards: merged }))
     }
 
     // Import mode: full replacement
     yield* repo.saveAll(resultCards)
-    return AppAction.CardsUpdated({ cards: resultCards }) as AppActionType
+    return action(AppAction.CardsUpdated({ cards: resultCards }))
   })

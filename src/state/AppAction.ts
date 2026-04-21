@@ -7,7 +7,8 @@ import type { SetLists } from "../domain/SetIndex"
 import type { UIState } from "./AppState"
 
 // ---------------------------------------------------------------------------
-// AppAction — type somme of all possible actions
+// AppAction — type somme de toutes les actions possibles.
+// Chaque variant est traite exhaustivement dans appReducer (switch + never guard).
 // ---------------------------------------------------------------------------
 
 export type AppAction = Data.TaggedEnum<{

@@ -1,5 +1,6 @@
 import { Option, pipe } from "effect"
 import type { Card } from "./Card"
+import type { SetCode } from "./SetCode"
 import * as R from "./Rarity"
 import type { RarityCategory } from "./Rarity"
 import * as P from "./Price"
@@ -9,7 +10,7 @@ import * as P from "./Price"
 // ---------------------------------------------------------------------------
 
 export interface FilterState {
-  readonly series: ReadonlyArray<string>
+  readonly series: ReadonlyArray<SetCode>
   readonly rarityBases: ReadonlyArray<RarityCategory>
   readonly parallel: boolean
   readonly priceMin: Option.Option<number>

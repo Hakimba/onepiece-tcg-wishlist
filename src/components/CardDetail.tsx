@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import { Option } from 'effect';
 import type { Card } from '../domain/Card';
-import { makeCardId, normalizeIdCard } from '../domain/Card';
+import { CharacterName, makeCardId, normalizeIdCard } from '../domain/Card';
 import type { CardId } from '../domain/Card';
 import type { Rarity as RarityType } from '../domain/Rarity';
 import { Promo } from '../domain/Rarity';
@@ -46,9 +47,9 @@ export default function CardDetail({
   const [editing, setEditing] = useState(false);
   const [zoomed, setZoomed] = useState(false);
 
-  const [editSerie, setEditSerie] = useState(card.serie);
-  const [editIdcard, setEditIdcard] = useState(card.idcard as string);
-  const [editCharacter, setEditCharacter] = useState(card.character);
+  const [editSerie, setEditSerie] = useState<string>(card.serie);
+  const [editIdcard, setEditIdcard] = useState<string>(card.idcard);
+  const [editCharacter, setEditCharacter] = useState<string>(card.character);
   const [editPrice, setEditPrice] = useState(displayPrice(card.price));
   const [editRarity, setEditRarity] = useState<RarityType>(card.rarity);
   const [editBuyLink, setEditBuyLink] = useState(Option.getOrElse(card.buyLink, () => ''));
@@ -57,24 +58,31 @@ export default function CardDetail({
   const editIsPromo = SC.isPromoId(editIdBranded);
   const editEffectiveRarity = editIsPromo ? Promo() : editRarity;
 
-  // Swipe animation state
-  const [dragX, setDragX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
+  // Slide animation state (out → card change → entering → in → idle)
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [slidePhase, setSlidePhase] = useState<SlidePhase>('idle');
-
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const isHorizontalSwipe = useRef<boolean | null>(null);
   const slideDirectionRef = useRef<'left' | 'right' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const commitNavigation = useCallback((direction: 'left' | 'right') => {
+    if (direction === 'left' && !hasPrev) return;
+    if (direction === 'right' && !hasNext) return;
+    if (slidePhase !== 'idle') return;
+    setSlideDirection(direction);
+    setSlidePhase('out');
+  }, [hasPrev, hasNext, slidePhase]);
+
+  const { dragX, isDragging, setDragX, onTouchStart, onTouchMove, onTouchEnd } = useSwipeGesture({
+    onSwipe: commitNavigation,
+    canSwipeLeft: hasPrev,
+    canSwipeRight: hasNext,
+    enabled: slidePhase === 'idle',
+  });
+
   useBodyScrollLock(zoomed);
 
-  // Keep ref in sync for use in transition callbacks
   useEffect(() => { slideDirectionRef.current = slideDirection; }, [slideDirection]);
 
-  // Reset state when card changes (swipe)
   useEffect(() => {
     setConfirmDelete(false);
     setEditing(false);
@@ -86,7 +94,6 @@ export default function CardDetail({
     setEditRarity(card.rarity);
     setEditBuyLink(Option.getOrElse(card.buyLink, () => ''));
 
-    // Slide-in: position off-screen on opposite side, then animate to center
     if (slideDirectionRef.current) {
       const dir = slideDirectionRef.current;
       setSlidePhase('entering');
@@ -101,25 +108,12 @@ export default function CardDetail({
     }
   }, [card.id]);
 
-  // Escape key closes zoom
   useEffect(() => {
     if (!zoomed) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoomed(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [zoomed]);
-
-  // --- Navigation ---
-
-  const commitNavigation = useCallback((direction: 'left' | 'right') => {
-    if (direction === 'left' && !hasPrev) return;
-    if (direction === 'right' && !hasNext) return;
-    if (slidePhase !== 'idle') return;
-    setSlideDirection(direction);
-    setSlidePhase('out');
-    setDragX(0);
-    setIsDragging(false);
-  }, [hasPrev, hasNext, slidePhase]);
 
   const handleTransitionEnd = useCallback(() => {
     if (slidePhase === 'out' && slideDirection) {
@@ -130,7 +124,6 @@ export default function CardDetail({
     }
   }, [slidePhase, slideDirection, onSwipe]);
 
-  // Keyboard navigation (ArrowLeft / ArrowRight)
   useEffect(() => {
     if (zoomed || editing) return;
     const handler = (e: KeyboardEvent) => {
@@ -146,67 +139,6 @@ export default function CardDetail({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [zoomed, editing, commitNavigation]);
-
-  // --- Touch handlers ---
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    isHorizontalSwipe.current = null;
-    setIsDragging(true);
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    if (slidePhase !== 'idle') return;
-
-    const deltaX = e.touches[0].clientX - touchStartX.current;
-    const deltaY = e.touches[0].clientY - touchStartY.current;
-
-    // Determine swipe direction on first significant move
-    if (isHorizontalSwipe.current === null) {
-      if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return;
-      isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY);
-      if (!isHorizontalSwipe.current) {
-        setIsDragging(false);
-        return;
-      }
-    }
-
-    if (!isHorizontalSwipe.current) return;
-
-    // Rubber-band at bounds
-    let x = deltaX;
-    if ((x > 0 && !hasPrev) || (x < 0 && !hasNext)) {
-      x = x / 3;
-    }
-    setDragX(x);
-  }, [slidePhase, hasPrev, hasNext]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (touchStartX.current === null) return;
-    touchStartX.current = null;
-    touchStartY.current = null;
-
-    if (!isHorizontalSwipe.current || slidePhase !== 'idle') {
-      setIsDragging(false);
-      setDragX(0);
-      return;
-    }
-
-    if (Math.abs(dragX) > 100) {
-      const direction = dragX < 0 ? 'right' : 'left';
-      const canGo = direction === 'left' ? hasPrev : hasNext;
-      if (canGo) {
-        commitNavigation(direction);
-        return;
-      }
-    }
-
-    // Snap back
-    setIsDragging(false);
-    setDragX(0);
-  }, [dragX, slidePhase, hasPrev, hasNext, commitNavigation]);
 
   // --- Inline styles for animation ---
 
@@ -247,9 +179,9 @@ export default function CardDetail({
     onUpdate(
       {
         ...card,
-        serie: editSerie.trim(),
+        serie: SC.SetCode(editSerie.trim()),
         idcard: newIdcard,
-        character: editCharacter.trim(),
+        character: CharacterName(editCharacter.trim()),
         rarity: newRarity,
         price: parsePrice(editPrice.trim()),
         buyLink: trimmedLink ? Option.some(trimmedLink) : Option.none(),
@@ -299,9 +231,9 @@ export default function CardDetail({
       <div
         className="detail-body"
         style={bodyStyle}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
         onTransitionEnd={handleTransitionEnd}
       >
         <div className="detail-image-section">

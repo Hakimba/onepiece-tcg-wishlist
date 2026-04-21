@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
+import type { CharacterName } from '../domain/Card';
 
 interface Props {
   query: string;
   onChange: (query: string) => void;
-  allCharacters: ReadonlyArray<string>;
+  allCharacters: ReadonlyArray<CharacterName>;
 }
 
 export default function SearchBar({ query, onChange, allCharacters }: Props) {
