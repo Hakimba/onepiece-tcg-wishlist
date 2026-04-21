@@ -81,6 +81,7 @@ export type AppPage = Data.TaggedEnum<{
     readonly resolved: ReadonlyArray<Card>
     readonly mode: DisambiguationMode
   }
+  SharedView: { readonly ctx: AppContext; readonly ui: UIState }
 }>
 
 export const AppPage = Data.taggedEnum<AppPage>()
@@ -96,6 +97,7 @@ export const getCtx: (page: AppPage) => Option.Option<AppContext> = AppPage.$mat
   AddCard: ({ ctx }) => Option.some(ctx),
   Characters: ({ ctx }) => Option.some(ctx),
   Disambiguation: ({ ctx }) => Option.some(ctx),
+  SharedView: ({ ctx }) => Option.some(ctx),
 })
 
 export const getUI: (page: AppPage) => Option.Option<UIState> = AppPage.$match({
@@ -105,6 +107,7 @@ export const getUI: (page: AppPage) => Option.Option<UIState> = AppPage.$match({
   AddCard: ({ ui }) => Option.some(ui),
   Characters: ({ ui }) => Option.some(ui),
   Disambiguation: ({ ui }) => Option.some(ui),
+  SharedView: ({ ui }) => Option.some(ui),
 })
 
 export const getCtxUI = (page: AppPage): Option.Option<readonly [AppContext, UIState]> =>
