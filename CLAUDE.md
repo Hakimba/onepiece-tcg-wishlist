@@ -25,6 +25,7 @@ src/
 │   ├── SetCode.ts       — SetCode branded type, extraction depuis idcard/cs, combined sets
 │   ├── Filter.ts        — FilterState, prédicats composables (série, rareté, prix, recherche)
 │   ├── Disambiguation.ts — AmbiguityReason TaggedEnum, AmbiguousCard, toggleChoice
+│   ├── SharedWishlist.ts — ShareableCard, compact rarity codec, serialize/deserialize
 │   └── index.ts         — re-exports
 ├── services/
 │   ├── CardRepository.ts — Effect service CRUD IndexedDB avec Layer, migration legacy
@@ -33,6 +34,8 @@ src/
 │   ├── ImageCacheRepository.ts — IndexedDB blob cache, canvasToBlob utility
 │   ├── IndexLoader.ts   — SpIndexService + VariantsIndexService (Effect + Layer)
 │   ├── VariantResolver.ts — pipeline résolution (rarity → serie → set → dedup)
+│   ├── ShareCodec.ts    — deflate/inflate + base64url encode/decode (fflate)
+│   ├── ShareUrl.ts      — generateShareFragment, extractSharePayload, decodeShareUrl
 │   └── index.ts         — re-exports
 ├── state/
 │   ├── AppState.ts      — AppPage TaggedEnum (state machine), AppContext, UIState
@@ -48,7 +51,8 @@ src/
 │   ├── useBodyScrollLock.ts — lock scroll body (zoom, modales)
 │   └── useTheme.ts      — toggle light/dark mode
 ├── components/
-│   ├── Header.tsx       — toggle liste/mosaïque, tri prix, favoris, filtres, import/export
+│   ├── Header.tsx       — toggle liste/mosaïque, tri prix, favoris, filtres, import/export, partage
+│   ├── SharedView.tsx   — vue partagée read-only (header simplifié, detail inline, filtres)
 │   ├── DisambiguationQueue.tsx — queue + picker de disambiguation des variantes
 │   ├── ListView.tsx     — vue tableau avec marqueurs image/achat
 │   ├── MosaicView.tsx   — grille responsive (auto-fill) avec images CDN

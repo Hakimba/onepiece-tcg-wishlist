@@ -4,6 +4,7 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 
 ## Features
 
+- **Partage de wishlist** — genere un lien court (is.gd) vers une vue read-only avec filtres, recherche, liste/mosaique et detail carte. Donnees encodees dans le hash fragment (fflate + base64url). Fonctionne hors-ligne apres la premiere visite
 - **Import/export CSV** — importer une wishlist, exporter pour backup ou partage
 - **Deux vues** — liste (tableau) ou mosaique (grille d'images responsive)
 - **Fiche carte** — detail avec image, rarete, prix, lien d'achat, navigation par swipe, zoom fullscreen
@@ -26,6 +27,7 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 
 - Vite + React + TypeScript
 - [Effect-TS](https://effect.website) — tagged enums, branded types, Option/Either, services avec Layer DI
+- [fflate](https://github.com/101arrowz/fflate) — compression deflate pour les URLs de partage
 - IndexedDB (`idb-keyval`) — stockage cartes + cache images
 - `vite-plugin-pwa` — service worker, manifest
 - GitHub Actions + GitHub Pages
@@ -34,8 +36,8 @@ PWA de gestion de wishlist de cartes One Piece TCG a l'unite.
 
 ```
 src/
-├── domain/          — types metier (Card, Rarity, Price, SetCode, Filter, Disambiguation)
-├── services/        — logique applicative (CardRepository, CsvCodec, ImageResolver, VariantResolver, IndexLoader)
+├── domain/          — types metier (Card, Rarity, Price, SetCode, Filter, Disambiguation, SharedWishlist)
+├── services/        — logique applicative (CardRepository, CsvCodec, ImageResolver, VariantResolver, IndexLoader, ShareCodec, ShareUrl)
 ├── state/           — state machine (AppPage TaggedEnum, AppReducer, AppEffects, AppAction)
 ├── hooks/           — React hooks (useAppStore, useImageCache, useOnlineSync, useIsMobile, useTheme)
 ├── components/      — composants UI React
