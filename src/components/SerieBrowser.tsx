@@ -3,6 +3,7 @@ import type { Card } from "../domain/Card"
 import { makeCard, makeCardId, IdCard } from "../domain/Card"
 import { fromDotgg, CATEGORY_COLORS } from "../domain/Rarity"
 import { Empty } from "../domain/Price"
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock"
 import {
   buildSetIndex,
   availableRarities,
@@ -61,6 +62,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function SerieBrowser({ variantsIndex, setLists, existingCards, onConfirm, onBack }: Props) {
+  useBodyScrollLock(true)
   const isMobile = useIsMobile()
   const [selectedSet, setSelectedSet] = useState<string | null>(null)
   const [selectedRarities, setSelectedRarities] = useState<ReadonlySet<string>>(new Set())
@@ -339,6 +341,13 @@ function SerieCardInner({ entry, selected, inWishlist, hasImgError, onToggle, on
       className={`serie-card${selected ? " selected" : ""}${inWishlist ? " in-wishlist" : ""}`}
       onClick={handleClick}
     >
+      {selected && (
+        <div className="serie-card-check">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
       {hasImgError ? (
         <div className="serie-card-placeholder">{entry.key}</div>
       ) : (

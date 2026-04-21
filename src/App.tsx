@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Option, pipe } from 'effect';
 import { useAppStore } from './hooks/useAppStore';
 import { useTheme } from './hooks/useTheme';
@@ -49,6 +49,19 @@ function App() {
   } = useAppStore();
 
   const { theme, toggleTheme } = useTheme();
+  const scrollYRef = useRef(0);
+  const prevTagRef = useRef(state._tag);
+
+  useEffect(() => {
+    const prev = prevTagRef.current;
+    prevTagRef.current = state._tag;
+    if (prev === 'Home' && state._tag !== 'Home') {
+      scrollYRef.current = window.scrollY;
+    }
+    if (prev !== 'Home' && state._tag === 'Home') {
+      requestAnimationFrame(() => window.scrollTo(0, scrollYRef.current));
+    }
+  }, [state._tag]);
 
   useOnlineSync(cards, ctx?.spIndex);
 
