@@ -8,6 +8,7 @@ interface Props {
   onAdd: () => void;
   onOpenImportModal: () => void;
   onExport: () => void;
+  onShare: () => Promise<string>;
   onClear: () => void;
   sortPrice: SortPrice;
   onSortPrice: (s: SortPrice) => void;
@@ -23,14 +24,30 @@ interface Props {
   onToggleTheme: () => void;
 }
 
-export default function Header({ view, onViewChange, onAdd, onOpenImportModal, onExport, onClear, sortPrice, onSortPrice, showFavoritesOnly, onToggleFavorites, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen, theme, onToggleTheme }: Props) {
+export default function Header({ view, onViewChange, onAdd, onOpenImportModal, onExport, onShare, onClear, sortPrice, onSortPrice, showFavoritesOnly, onToggleFavorites, count, filteredCount, filtersActive, showFilters, onToggleFilters, onMenuOpen, theme, onToggleTheme }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (!confirmClear) return;
     const timer = setTimeout(() => setConfirmClear(false), 3000);
     return () => clearTimeout(timer);
   }, [confirmClear]);
+
+  useEffect(() => {
+    if (!showToast) return;
+    const timer = setTimeout(() => setShowToast(false), 2000);
+    return () => clearTimeout(timer);
+  }, [showToast]);
+
+  const handleShare = () => {
+    if (sharing) return;
+    setSharing(true);
+    onShare()
+      .then(() => setShowToast(true))
+      .finally(() => setSharing(false));
+  };
 
   return (
     <header className="header">
@@ -72,14 +89,14 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
               onClick={() => onViewChange('list')}
               title="Liste"
             >
-              ☰
+              &#9776;
             </button>
             <button
               className={view === 'mosaic' ? 'active' : ''}
               onClick={() => onViewChange('mosaic')}
-              title="Mosaïque"
+              title="Mosa&iuml;que"
             >
-              ▦
+              &#9638;
             </button>
           </div>
           <button className={`btn-filter ${showFilters ? 'active' : ''}`} onClick={onToggleFilters}>
@@ -98,18 +115,18 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
                 <line x1="12" y1="19" x2="12" y2="5" />
                 <polyline points="5 12 12 5 19 12" />
               </svg>
-              <span className="sort-label">€</span>
+              <span className="sort-label">&euro;</span>
             </button>
             <button
               className={sortPrice === 'desc' ? 'active' : ''}
               onClick={() => onSortPrice(sortPrice === 'desc' ? null : 'desc')}
-              title="Prix décroissant"
+              title="Prix d&eacute;croissant"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <polyline points="19 12 12 19 5 12" />
               </svg>
-              <span className="sort-label">€</span>
+              <span className="sort-label">&euro;</span>
             </button>
           </div>
           <button
@@ -128,6 +145,17 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
             Import
           </button>
           <button className="btn-secondary" onClick={onExport}>Export</button>
+          <button className="btn-secondary" onClick={handleShare} disabled={sharing} title="Partager">
+            {sharing ? (
+              <span className="share-spinner" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            )}
+          </button>
           {confirmClear ? (
             <div className="header-confirm-clear">
               <button className="btn-danger btn-small" onClick={() => { onClear(); setConfirmClear(false); }}>Oui</button>
@@ -143,6 +171,9 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
           )}
         </div>
       </div>
+      {showToast && (
+        <div className="share-toast">Lien copie !</div>
+      )}
     </header>
   );
 }

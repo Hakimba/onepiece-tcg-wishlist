@@ -41,6 +41,14 @@ export type AppAction = Data.TaggedEnum<{
   // UI state
   UpdateUI: { readonly fn: (ui: UIState) => UIState }
 
+  // Shared view
+  SharedLoaded: {
+    readonly cards: ReadonlyArray<Card>
+    readonly spIndex: SpIndex
+    readonly variantsIndex: VariantsIndex
+    readonly setLists: SetLists
+  }
+
   // Errors
   SetError: { readonly error: string }
   ClearError: {}

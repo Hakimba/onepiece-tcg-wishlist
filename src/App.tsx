@@ -19,6 +19,7 @@ import SearchBar from './components/SearchBar';
 import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
 import ImportModal from './components/ImportModal';
+import SharedView from './components/SharedView';
 import { useOnlineSync } from './hooks/useOnlineSync';
 import './styles/app.css';
 
@@ -46,6 +47,7 @@ function App() {
     handleOpenImportModal,
     handleCloseImportModal,
     handleImportBySerie,
+    handleShare,
   } = useAppStore();
 
   const { theme, toggleTheme } = useTheme();
@@ -95,6 +97,19 @@ function App() {
         mode={state.mode}
         onFinish={handleDisambiguationFinish}
         onCancel={() => dispatch(AppAction.CancelDisambiguation())}
+      />
+    );
+  }
+
+  if (state._tag === 'SharedView') {
+    if (!ctx || !ui) return null;
+    return (
+      <SharedView
+        ctx={ctx}
+        ui={ui}
+        dispatch={dispatch}
+        theme={theme}
+        toggleTheme={toggleTheme}
       />
     );
   }
@@ -178,6 +193,7 @@ function App() {
           onAdd={() => dispatch(AppAction.ShowAdd())}
           onOpenImportModal={handleOpenImportModal}
           onExport={handleExport}
+          onShare={handleShare}
           onClear={handleClear}
           sortPrice={ui.sortPrice}
           onSortPrice={(s: SortPrice) => dispatch(AppAction.UpdateUI({ fn: (u) => ({ ...u, sortPrice: s }) }))}

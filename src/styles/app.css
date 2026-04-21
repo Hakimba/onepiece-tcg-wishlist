@@ -94,6 +94,51 @@ body {
   border-radius: 20px;
 }
 
+.shared-badge {
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+.share-toast {
+  position: fixed;
+  bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 20px;
+  z-index: 100;
+  pointer-events: none;
+  animation: toast-fade 2s ease-out forwards;
+}
+
+@keyframes toast-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.share-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .header-actions {
   display: flex;
   flex-direction: column;

@@ -11,6 +11,7 @@ import type { Card, CardId } from "../domain/Card"
 import { toPredicate, hasActiveFilters } from "../domain/Filter"
 import { comparePrice } from "../domain/Price"
 import { downloadCsv } from "../services/CsvCodec"
+import { extractSharePayload, generateShareFragment } from "../services/ShareUrl"
 
 // ---------------------------------------------------------------------------
 // Hook principal
@@ -34,7 +35,12 @@ export function useAppStore() {
 
   // ----- Initial load -----
   useEffect(() => {
-    runEffect(AppEffects.loadApp)
+    const payload = extractSharePayload(window.location.hash)
+    if (payload) {
+      runEffect(AppEffects.loadSharedView(payload))
+    } else {
+      runEffect(AppEffects.loadApp)
+    }
   }, [runEffect])
 
   // ----- Derived state -----
@@ -174,6 +180,33 @@ export function useAppStore() {
     [runEffect],
   )
 
+  const handleShare = useCallback(async (): Promise<string> => {
+    const fragment = generateShareFragment(cards)
+    const longUrl = `${window.location.origin}${window.location.pathname}${fragment}`
+
+    let url = longUrl
+    try {
+      const resp = await fetch(
+        `https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`,
+      )
+      if (resp.ok) {
+        const data = await resp.json()
+        if (data.shorturl) url = data.shorturl
+      }
+    } catch {
+      // fallback to long URL
+    }
+
+    if (navigator.share) {
+      navigator.share({ title: "OP Wishlist", url }).catch(() => {
+        navigator.clipboard.writeText(url).catch(() => {})
+      })
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+    }
+    return url
+  }, [cards])
+
   return {
     state,
     dispatch,
@@ -199,5 +232,6 @@ export function useAppStore() {
     handleOpenImportModal,
     handleCloseImportModal,
     handleImportBySerie,
+    handleShare,
   }
 }

@@ -87,6 +87,18 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
     case "CancelDisambiguation":
       return withCtxUI(state, (ctx, ui) => AP.Home({ ctx, ui }))
 
+    // ----- Shared view -----
+    case "SharedLoaded":
+      return AP.SharedView({
+        ctx: {
+          cards: action.cards,
+          spIndex: action.spIndex,
+          variantsIndex: action.variantsIndex,
+          setLists: action.setLists,
+        },
+        ui: defaultUIState,
+      })
+
     // ----- UI state -----
     case "UpdateUI":
       return pipe(

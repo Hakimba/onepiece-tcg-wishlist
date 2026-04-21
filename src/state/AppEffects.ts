@@ -4,6 +4,7 @@ import { SpIndexService, VariantsIndexService, SetListsService } from "../servic
 import { parseCsv } from "../services/CsvCodec"
 import { resolveVariants } from "../services/VariantResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
+import { decodeShareUrl } from "../services/ShareUrl"
 import type { Card } from "../domain/Card"
 import type { CardId } from "../domain/Card"
 import { AppAction } from "./AppAction"
@@ -28,6 +29,38 @@ export const loadApp = Effect.gen(function* () {
 
   return AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }) as AppActionType
 })
+
+// ---------------------------------------------------------------------------
+// Load shared view — decode URL, no IndexedDB access
+// ---------------------------------------------------------------------------
+
+export const loadSharedView = (encoded: string) =>
+  Effect.gen(function* () {
+    const spService = yield* SpIndexService
+    const viService = yield* VariantsIndexService
+    const slService = yield* SetListsService
+
+    const [spIndex, variantsIndex, setLists] = yield* Effect.all([
+      Effect.orElseSucceed(spService.load, () => new Map() as ReadonlyMap<string, string>),
+      Effect.orElseSucceed(viService.load, () => ({}) as VariantsIndex),
+      Effect.orElseSucceed(slService.load, () => ({}) as import("../domain/SetIndex").SetLists),
+    ], { concurrency: "unbounded" })
+
+    const decoded = decodeShareUrl(encoded, variantsIndex)
+
+    if (Either.isLeft(decoded)) {
+      const repo = yield* CardRepository
+      const cards = yield* repo.loadAll
+      return AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }) as AppActionType
+    }
+
+    return AppAction.SharedLoaded({
+      cards: decoded.right,
+      spIndex,
+      variantsIndex,
+      setLists,
+    }) as AppActionType
+  })
 
 // ---------------------------------------------------------------------------
 // Import CSV
