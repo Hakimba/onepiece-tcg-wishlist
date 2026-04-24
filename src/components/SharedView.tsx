@@ -46,18 +46,18 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
   useBodyScrollLock(zoomed)
 
   const filteredCards = useMemo(() => {
-    const predicate = toPredicate(ui.filters, ui.searchQuery, false)
+    const predicate = toPredicate(ui.filters, ui.searchQuery, ui.showFavoritesOnly)
     const result = ctx.cards.filter(predicate)
     if (ui.sortPrice) {
       const dir = ui.sortPrice === "asc" ? 1 : -1
       return result.sort((a, b) => dir * comparePrice(a.price, b.price))
     }
     return result
-  }, [ctx.cards, ui.filters, ui.searchQuery, ui.sortPrice])
+  }, [ctx.cards, ui.filters, ui.searchQuery, ui.sortPrice, ui.showFavoritesOnly])
 
   const filtersActive = useMemo(
-    () => hasActiveFilters(ui.filters, ui.searchQuery, false),
-    [ui.filters, ui.searchQuery],
+    () => hasActiveFilters(ui.filters, ui.searchQuery, ui.showFavoritesOnly),
+    [ui.filters, ui.searchQuery, ui.showFavoritesOnly],
   )
 
   const allSeries = useMemo(
@@ -154,6 +154,15 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
                 <span className="sort-label">&euro;</span>
               </button>
             </div>
+          <button
+            className={`btn-favorites ${ui.showFavoritesOnly ? "active" : ""}`}
+            onClick={() => updateUI((u) => ({ ...u, showFavoritesOnly: !u.showFavoritesOnly }))}
+            title={ui.showFavoritesOnly ? "Afficher tout" : "Favoris uniquement"}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={ui.showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </button>
           </div>
         </div>
       </header>
