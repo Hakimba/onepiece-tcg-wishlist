@@ -114,10 +114,17 @@ export function useAppStore() {
 
   const handleDelete = useCallback(
     (id: CardId) => {
-      runEffect(AppEffects.deleteCard(id))
-      dispatch(AppAction.DeselectCard())
+      AppRuntime.runPromise(
+        Effect.catchAll(AppEffects.deleteCard(id), (err) => {
+          console.error("Effect error:", err)
+          return Effect.succeed(AppAction.SetError({ error: String(err) }) as AppActionType)
+        }),
+      ).then((action) => {
+        dispatch(action)
+        dispatch(AppAction.DeselectCard())
+      })
     },
-    [runEffect],
+    [],
   )
 
   const handleToggleFavorite = useCallback(
