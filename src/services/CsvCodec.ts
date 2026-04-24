@@ -149,11 +149,20 @@ export const exportCsv = (cards: ReadonlyArray<Card>): string => {
 
 export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
   const csv = exportCsv(cards)
+  const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })
+
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    navigator.share({ files: [file] }).catch(() => {})
+    return
+  }
+
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
   a.download = "onepiece-wishlist.csv"
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
