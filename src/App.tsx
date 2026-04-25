@@ -125,8 +125,7 @@ function App() {
     />
   );
 
-  if (state._tag === 'CardDetail') {
-    if (!detailCard) return null;
+  if (state._tag === 'CardDetail' && detailCard) {
     return (
       <>
         {drawer}
