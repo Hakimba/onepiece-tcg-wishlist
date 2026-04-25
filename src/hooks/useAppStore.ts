@@ -31,7 +31,10 @@ export function useAppStore() {
           console.error("Effect error:", err)
           return Effect.succeed(AppAction.SetError({ error: String(err) }) as AppActionType)
         }),
-      ).then(dispatch)
+      ).then(dispatch, (defect) => {
+        console.error("Effect defect:", defect)
+        dispatch(AppAction.SetError({ error: String(defect) }))
+      })
     },
     [],
   )

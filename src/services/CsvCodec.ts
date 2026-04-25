@@ -147,15 +147,7 @@ export const exportCsv = (cards: ReadonlyArray<Card>): string => {
 // Download CSV — the ONLY impure function (DOM side effect), isolated
 // ---------------------------------------------------------------------------
 
-export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
-  const csv = exportCsv(cards)
-  const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })
-
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    navigator.share({ files: [file] }).catch(() => {})
-    return
-  }
-
+const downloadViaLink = (csv: string): void => {
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
@@ -165,4 +157,18 @@ export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
+  const csv = exportCsv(cards)
+
+  if (navigator.share) {
+    const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })
+    if (navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file] }).catch(() => downloadViaLink(csv))
+      return
+    }
+  }
+
+  downloadViaLink(csv)
 }
