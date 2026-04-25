@@ -147,6 +147,23 @@ export const exportCsv = (cards: ReadonlyArray<Card>): string => {
 // Download CSV — the ONLY impure function (DOM side effect), isolated
 // ---------------------------------------------------------------------------
 
+const isIOSStandalone = (): boolean =>
+  (navigator as any).standalone === true ||
+  ((/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) &&
+    window.matchMedia("(display-mode: standalone)").matches)
+
+const downloadViaOpen = (csv: string): boolean => {
+  const blob = new Blob([csv], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url)
+  if (win) {
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    return true
+  }
+  URL.revokeObjectURL(url)
+  return false
+}
+
 const downloadViaLink = (csv: string): void => {
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
@@ -161,6 +178,14 @@ const downloadViaLink = (csv: string): void => {
 
 export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
   const csv = exportCsv(cards)
+
+  if (isIOSStandalone()) {
+    if (downloadViaOpen(csv)) return
+    if (navigator.share) {
+      navigator.share({ text: csv }).catch(() => {})
+      return
+    }
+  }
 
   if (navigator.share) {
     const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })

@@ -57,7 +57,7 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
     touchStart.current = null;
   }, [handleCarouselSwipe]);
 
-  const handleFinish = () => {
+  const handleFinish = useCallback(() => {
     const disambiguated: Card[] = items
       .filter((item) => item.chosenIndices.length > 0)
       .flatMap((item) =>
@@ -76,7 +76,7 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
         }),
       );
     onFinish(mode === 'import' ? [...resolved, ...disambiguated] : disambiguated);
-  };
+  }, [items, mode, resolved, onFinish]);
 
   // Picker view for a single ambiguous card
   if (activeIndex !== null && items[activeIndex]) {
@@ -137,7 +137,14 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
         </div>
         <button
           className="btn-add btn-submit"
-          onClick={() => { setActiveIndex(null); setCarouselIndex(null); }}
+          onClick={() => {
+            const allResolved = items.every((it) => it.chosenIndices.length > 0)
+            if ((mode === "add" && items.length === 1) || allResolved) {
+              handleFinish()
+            } else {
+              setActiveIndex(null); setCarouselIndex(null)
+            }
+          }}
           disabled={item.chosenIndices.length === 0}
         >
           Confirmer{item.chosenIndices.length > 1 ? ` (${item.chosenIndices.length})` : ''}
