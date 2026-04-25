@@ -110,10 +110,10 @@ export const displayRarity: (r: Rarity) => string = Rarity.$match({
 // getBase utilise $match car le retour depend du contenu du variant, pas juste du tag.
 // ---------------------------------------------------------------------------
 
-export const isParallel = (r: Rarity): boolean => r._tag === "Parallel"
-export const isSP = (r: Rarity): boolean => r._tag === "SP"
-export const isPromo = (r: Rarity): boolean => r._tag === "Promo"
-export const isUnknown = (r: Rarity): boolean => r._tag === "Unknown"
+export const isParallel = Rarity.$is("Parallel")
+export const isSP = Rarity.$is("SP")
+export const isPromo = Rarity.$is("Promo")
+export const isUnknown = Rarity.$is("Unknown")
 
 export const getBase: (r: Rarity) => Option.Option<StandardBase> = Rarity.$match({
   Standard: ({ base }) => Option.some(base),

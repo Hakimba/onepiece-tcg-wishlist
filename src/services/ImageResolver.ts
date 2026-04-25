@@ -1,4 +1,4 @@
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 import type { Card, IdCard } from "../domain/Card"
 import * as R from "../domain/Rarity"
 
@@ -18,42 +18,46 @@ export type SpIndex = ReadonlyMap<string, string>
 // resolveImageUrl : (Card, SpIndex) -> Option<string>
 //
 // Pure function. Pattern match on Rarity determines the suffix:
+//   Manual override -> card.image
+//   Explicit imageSuffix -> use directly
 //   Standard -> "" (no suffix)
-//   Parallel -> imageSuffix if present, else "_p1"
-//   SP       -> lookup in spIndex
-//   Unknown  -> imageSuffix if present, else None
+//   Parallel -> "_p1"
+//   SP -> lookup in spIndex
+//   Unknown -> no suffix
 // ---------------------------------------------------------------------------
+
+const cdnUrl = (idcard: IdCard, suffix: string): string =>
+  `${CDN_BASE}/${idcard}${suffix}.webp`
 
 export const resolveImageUrl = (
   card: Card,
   spIndex: SpIndex,
-): Option.Option<string> => {
-  // Manual image override takes precedence
-  if (Option.isSome(card.image)) return card.image
-
-  // If imageSuffix is explicitly set (from disambiguation), use it directly
-  if (Option.isSome(card.imageSuffix)) {
-    return Option.some(`${CDN_BASE}/${card.idcard}${Option.getOrElse(card.imageSuffix, () => "")}.webp`)
-  }
-
-  // Derive suffix from rarity
-  return R.Rarity.$match({
-    Standard: () => Option.some(`${CDN_BASE}/${card.idcard}.webp`),
-    Parallel: () => Option.some(`${CDN_BASE}/${card.idcard}_p1.webp`),
-    SP: () => {
-      const suffix = spIndex.get(card.idcard)
-      return suffix !== undefined
-        ? Option.some(`${CDN_BASE}/${card.idcard}${suffix}.webp`)
-        : Option.none()
-    },
-    Promo: () => Option.some(`${CDN_BASE}/${card.idcard}.webp`),
-    Unknown: () => Option.some(`${CDN_BASE}/${card.idcard}.webp`),
-  })(card.rarity)
-}
+): Option.Option<string> =>
+  pipe(
+    card.image,
+    Option.orElse(() =>
+      pipe(
+        card.imageSuffix,
+        Option.map((suffix) => cdnUrl(card.idcard, suffix)),
+      ),
+    ),
+    Option.orElse(() =>
+      R.Rarity.$match({
+        Standard: () => Option.some(cdnUrl(card.idcard, "")),
+        Parallel: () => Option.some(cdnUrl(card.idcard, "_p1")),
+        SP: () => pipe(
+          Option.fromNullable(spIndex.get(card.idcard)),
+          Option.map((suffix) => cdnUrl(card.idcard, suffix)),
+        ),
+        Promo: () => Option.some(cdnUrl(card.idcard, "")),
+        Unknown: () => Option.some(cdnUrl(card.idcard, "")),
+      })(card.rarity),
+    ),
+  )
 
 // ---------------------------------------------------------------------------
 // Variant image URL (for disambiguation picker)
 // ---------------------------------------------------------------------------
 
 export const variantImageUrl = (idcard: IdCard, suffix: string): string =>
-  `${CDN_BASE}/${idcard}${suffix}.webp`
+  cdnUrl(idcard, suffix)

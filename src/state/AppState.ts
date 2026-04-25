@@ -12,7 +12,7 @@ import type { SetLists } from "../domain/SetIndex"
 // ---------------------------------------------------------------------------
 
 export type ViewMode = "list" | "mosaic"
-export type SortPrice = "asc" | "desc" | null
+export type SortPrice = "asc" | "desc" | "none"
 
 // ---------------------------------------------------------------------------
 // App Context — shared data across all page states
@@ -42,7 +42,7 @@ export interface UIState {
 
 export const defaultUIState: UIState = {
   view: "mosaic",
-  sortPrice: null,
+  sortPrice: "none",
   showFavoritesOnly: false,
   searchQuery: "",
   filters: defaultFilters,

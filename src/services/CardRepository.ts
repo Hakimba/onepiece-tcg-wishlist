@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Data } from "effect"
+import { Effect, Context, Layer, Data, Option } from "effect"
 import { get, set } from "idb-keyval"
 import type { Card, CardId } from "../domain/Card"
 
@@ -24,7 +24,7 @@ export class CardRepository extends Context.Tag("CardRepository")<
     readonly loadAll: Effect.Effect<ReadonlyArray<Card>, StorageError>
     readonly saveAll: (cards: ReadonlyArray<Card>) => Effect.Effect<void, StorageError>
     readonly add: (card: Card) => Effect.Effect<ReadonlyArray<Card>, DuplicateCardError | StorageError>
-    readonly update: (card: Card, oldId?: CardId) => Effect.Effect<ReadonlyArray<Card>, StorageError>
+    readonly update: (card: Card, oldId: Option.Option<CardId>) => Effect.Effect<ReadonlyArray<Card>, StorageError>
     readonly remove: (id: CardId) => Effect.Effect<ReadonlyArray<Card>, StorageError>
   }
 >() {}
@@ -117,7 +117,7 @@ export const CardRepositoryLive = Layer.succeed(
       Effect.tryPromise({
         try: async () => {
           const cards = (await get<Card[]>(CARDS_KEY)) ?? []
-          const targetId = oldId ?? card.id
+          const targetId = Option.getOrElse(oldId, () => card.id)
           const updated = cards.map((c: Card) => c.id === targetId ? card : c)
           await set(CARDS_KEY, updated)
           return updated as ReadonlyArray<Card>

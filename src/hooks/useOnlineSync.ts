@@ -1,25 +1,30 @@
 import { useEffect, useRef } from "react"
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
 import type { SpIndex } from "../services/ImageResolver"
 import { resolveImageUrl } from "../services/ImageResolver"
 import { imageCacheGet, imageCachePut, canvasToBlob } from "../services/ImageCacheRepository"
 
-function getCdnUrls(cards: ReadonlyArray<Card>, spIndex: SpIndex): string[] {
-  const urls: string[] = []
+const getCdnUrls = (cards: ReadonlyArray<Card>, spIndex: SpIndex): ReadonlyArray<string> => {
   const seen = new Set<string>()
-  for (const card of cards) {
-    if (Option.isSome(card.image)) continue
-    const url = Option.getOrNull(resolveImageUrl(card, spIndex))
-    if (url && !seen.has(url)) {
-      seen.add(url)
-      urls.push(url)
-    }
-  }
-  return urls
+  return cards.flatMap((card) =>
+    Option.isSome(card.image)
+      ? []
+      : pipe(
+          resolveImageUrl(card, spIndex),
+          Option.match({
+            onNone: () => [],
+            onSome: (url) => {
+              if (seen.has(url)) return []
+              seen.add(url)
+              return [url]
+            },
+          }),
+        ),
+  )
 }
 
-async function syncMissing(urls: string[], signal: AbortSignal) {
+async function syncMissing(urls: ReadonlyArray<string>, signal: AbortSignal) {
   const CONCURRENCY = 3
   let i = 0
 
@@ -43,7 +48,7 @@ async function syncMissing(urls: string[], signal: AbortSignal) {
 
 export function useOnlineSync(
   cards: ReadonlyArray<Card>,
-  spIndex: SpIndex | undefined,
+  spIndex: Option.Option<SpIndex>,
 ): void {
   const cardsRef = useRef(cards)
   const spIndexRef = useRef(spIndex)
@@ -51,17 +56,22 @@ export function useOnlineSync(
   spIndexRef.current = spIndex
 
   useEffect(() => {
-    let ac: AbortController | null = null
+    let ac: AbortController | undefined
 
     const sync = () => {
       if (!navigator.onLine) return
-      const sp = spIndexRef.current
-      if (!sp) return
-      const urls = getCdnUrls(cardsRef.current, sp)
-      if (urls.length === 0) return
-
-      ac = new AbortController()
-      syncMissing(urls, ac.signal).catch(() => {})
+      pipe(
+        spIndexRef.current,
+        Option.match({
+          onNone: () => {},
+          onSome: (sp) => {
+            const urls = getCdnUrls(cardsRef.current, sp)
+            if (urls.length === 0) return
+            ac = new AbortController()
+            syncMissing(urls, ac.signal).catch(() => {})
+          },
+        }),
+      )
     }
 
     sync()

@@ -48,7 +48,7 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
   const filteredCards = useMemo(() => {
     const predicate = toPredicate(ui.filters, ui.searchQuery, ui.showFavoritesOnly)
     const result = ctx.cards.filter(predicate)
-    if (ui.sortPrice) {
+    if (ui.sortPrice !== "none") {
       const dir = ui.sortPrice === "asc" ? 1 : -1
       return result.sort((a, b) => dir * comparePrice(a.price, b.price))
     }
@@ -80,9 +80,12 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
 
   // ----- Detail card (inline) -----
 
-  if (selectedIndex !== null) {
+  useEffect(() => {
+    if (selectedIndex !== null && !filteredCards[selectedIndex]) setSelectedIndex(null)
+  }, [selectedIndex, filteredCards])
+
+  if (selectedIndex !== null && filteredCards[selectedIndex]) {
     const card = filteredCards[selectedIndex]
-    if (!card) { setSelectedIndex(null); return null }
     return (
       <SharedCardDetail
         card={card}
@@ -141,13 +144,13 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
               {filtersActive && <span className="filter-dot" />}
             </button>
             <div className="sort-toggle">
-              <button className={ui.sortPrice === "asc" ? "active" : ""} onClick={() => updateUI((u) => ({ ...u, sortPrice: u.sortPrice === "asc" ? null : "asc" as SortPrice }))} title="Prix croissant">
+              <button className={ui.sortPrice === "asc" ? "active" : ""} onClick={() => updateUI((u) => ({ ...u, sortPrice: u.sortPrice === "asc" ? "none" : "asc" as SortPrice }))} title="Prix croissant">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
                 </svg>
                 <span className="sort-label">&euro;</span>
               </button>
-              <button className={ui.sortPrice === "desc" ? "active" : ""} onClick={() => updateUI((u) => ({ ...u, sortPrice: u.sortPrice === "desc" ? null : "desc" as SortPrice }))} title="Prix decroissant">
+              <button className={ui.sortPrice === "desc" ? "active" : ""} onClick={() => updateUI((u) => ({ ...u, sortPrice: u.sortPrice === "desc" ? "none" : "desc" as SortPrice }))} title="Prix decroissant">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" />
                 </svg>

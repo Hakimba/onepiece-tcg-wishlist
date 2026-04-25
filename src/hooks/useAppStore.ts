@@ -41,12 +41,13 @@ export function useAppStore() {
 
   // ----- Initial load -----
   useEffect(() => {
-    const payload = extractSharePayload(window.location.hash)
-    if (payload) {
-      runEffect(AppEffects.loadSharedView(payload))
-    } else {
-      runEffect(AppEffects.loadApp)
-    }
+    pipe(
+      extractSharePayload(window.location.hash),
+      Option.match({
+        onNone: () => runEffect(AppEffects.loadApp),
+        onSome: (payload) => runEffect(AppEffects.loadSharedView(payload)),
+      }),
+    )
   }, [runEffect])
 
   // ----- Derived state -----
@@ -62,9 +63,9 @@ export function useAppStore() {
       Option.map((ui) => {
         const predicate = toPredicate(ui.filters, ui.searchQuery, ui.showFavoritesOnly)
         const result = cards.filter(predicate)
-        if (ui.sortPrice) {
+        if (ui.sortPrice !== "none") {
           const dir = ui.sortPrice === "asc" ? 1 : -1
-          return result.sort((a, b) => dir * comparePrice(a.price, b.price))
+          return [...result].sort((a, b) => dir * comparePrice(a.price, b.price))
         }
         return result
       }),
@@ -97,7 +98,10 @@ export function useAppStore() {
   )
 
   const handleExport = useCallback(() => {
-    downloadCsv(cards)
+    downloadCsv(cards).then((result) => {
+      if (result === "clipboard") alert("CSV copié dans le presse-papiers (colle-le dans Notes ou un fichier)")
+      else if (result === "fail") alert("Export impossible — essaie depuis Safari hors PWA")
+    })
   }, [cards])
 
   const handleAdd = useCallback(
@@ -109,25 +113,22 @@ export function useAppStore() {
   )
 
   const handleUpdate = useCallback(
-    (card: Card, oldId?: CardId) => {
-      runEffect(AppEffects.updateCard(card, Option.fromNullable(oldId)))
+    (card: Card, oldId: Option.Option<CardId> = Option.none()) => {
+      runEffect(AppEffects.updateCard(card, oldId))
     },
     [runEffect],
   )
 
   const handleDelete = useCallback(
     (id: CardId) => {
-      AppRuntime.runPromise(
-        Effect.catchAll(AppEffects.deleteCard(id), (err) => {
-          console.error("Effect error:", err)
-          return Effect.succeed(AppAction.SetError({ error: String(err) }) as AppActionType)
+      runEffect(
+        Effect.map(AppEffects.deleteCard(id), (a) => {
+          dispatch(AppAction.DeselectCard())
+          return a
         }),
-      ).then((action) => {
-        dispatch(action)
-        dispatch(AppAction.DeselectCard())
-      })
+      )
     },
-    [],
+    [runEffect],
   )
 
   const handleToggleFavorite = useCallback(

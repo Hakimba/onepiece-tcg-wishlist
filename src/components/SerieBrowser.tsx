@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
+import { Option } from "effect"
 import type { Card } from "../domain/Card"
 import { makeCard, makeCardId, IdCard } from "../domain/Card"
 import { fromDotgg, CATEGORY_COLORS } from "../domain/Rarity"
@@ -70,7 +71,7 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
   const [imgErrors, setImgErrors] = useState<ReadonlySet<string>>(new Set())
   const [zoomedEntry, setZoomedEntry] = useState<SetVariantEntry | null>(null)
 
-  const setIndex = useMemo(() => buildSetIndex(variantsIndex, setLists), [variantsIndex, setLists])
+  const setIndex = useMemo(() => buildSetIndex(variantsIndex, Option.some(setLists)), [variantsIndex, setLists])
   const sortedSets = useMemo(() => sortedSetCodes(setIndex), [setIndex])
   const groupedSets = useMemo(() => groupByCategory(sortedSets), [sortedSets])
 
@@ -93,7 +94,7 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
   }, [existingCards])
 
   const entryCardId = useCallback((e: SetVariantEntry) =>
-    makeCardId(IdCard(e.idcard), fromDotgg(e.variant.r, e.variant.s)) as string,
+    String(makeCardId(IdCard(e.idcard), fromDotgg(e.variant.r, e.variant.s))),
   [])
 
   const selectedCount = selectedKeys.size

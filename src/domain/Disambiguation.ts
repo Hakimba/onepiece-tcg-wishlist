@@ -77,6 +77,34 @@ export type DisambiguationMode = "import" | "add"
 // Update chosen indices (immutable)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Grouping by reason category
+// ---------------------------------------------------------------------------
+
+export interface AmbiguousSection {
+  readonly label: string
+  readonly entries: ReadonlyArray<{ readonly item: AmbiguousCard; readonly i: number }>
+}
+
+export const groupByReason = (items: ReadonlyArray<AmbiguousCard>): ReadonlyArray<AmbiguousSection> => {
+  const indexed = items.map((item, i) => ({ item, i }))
+  const mismatch = indexed.filter(({ item }) =>
+    item.reason._tag === "RarityMismatch" || item.reason._tag === "SerieMismatch",
+  )
+  const ambig = indexed.filter(({ item }) => item.reason._tag === "MultipleVariants")
+  const unknown = indexed.filter(({ item }) => item.reason._tag === "UnspecifiedRarity")
+
+  const sections: { label: string; entries: typeof indexed }[] = []
+  if (mismatch.length > 0) sections.push({ label: "Rareté ou série inexistante pour cette carte", entries: mismatch })
+  if (ambig.length > 0) sections.push({ label: "Plusieurs variantes possibles", entries: ambig })
+  if (unknown.length > 0) sections.push({ label: "Toutes les variantes (rareté non précisée)", entries: unknown })
+  return sections
+}
+
+// ---------------------------------------------------------------------------
+// Update chosen indices (immutable)
+// ---------------------------------------------------------------------------
+
 export const toggleChoice = (item: AmbiguousCard, candidateIdx: number): AmbiguousCard => {
   if (isMultiSelect(item.reason)) {
     // Multi-select: toggle in/out

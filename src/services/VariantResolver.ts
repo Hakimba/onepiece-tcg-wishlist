@@ -56,30 +56,24 @@ export const ResolutionResult = Data.taggedEnum<ResolutionResult>()
 // ---------------------------------------------------------------------------
 
 /** Stage 1: Filter variants by rarity */
-const filterByRarity = (rarity: Rarity) => (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> => {
-  if (R.isUnknown(rarity)) return variants
-
-  if (R.isSP(rarity)) {
-    return variants.filter((v) => v.r === "SP CARD")
-  }
-
-  if (R.isPromo(rarity)) {
-    return variants.filter((v) => v.r === "P")
-  }
-
-  const dotggBase = pipe(R.toDotggBase(rarity), Option.getOrNull)
-
-  if (R.isParallel(rarity)) {
-    return variants.filter((v) =>
-      v.s !== "" && v.r !== "SP CARD" && (!dotggBase || v.r === dotggBase),
-    )
-  }
-
-  // Standard rarity
-  return variants.filter((v) =>
-    v.s === "" && (!dotggBase || v.r === dotggBase),
-  )
-}
+const filterByRarity = (rarity: Rarity) => (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> =>
+  R.Rarity.$match({
+    Unknown: () => variants,
+    SP: () => variants.filter((v) => v.r === "SP CARD"),
+    Promo: () => variants.filter((v) => v.r === "P"),
+    Parallel: () => {
+      const base = pipe(R.toDotggBase(rarity), Option.getOrElse(() => ""))
+      return variants.filter((v) =>
+        v.s !== "" && v.r !== "SP CARD" && (base === "" || v.r === base),
+      )
+    },
+    Standard: () => {
+      const base = pipe(R.toDotggBase(rarity), Option.getOrElse(() => ""))
+      return variants.filter((v) =>
+        v.s === "" && (base === "" || v.r === base),
+      )
+    },
+  })(rarity)
 
 /** Stage 2: Filter by explicit serie */
 const filterBySerie = (
@@ -101,19 +95,16 @@ const filterBySet = (idcard: IdCard) => (variants: ReadonlyArray<VariantEntry>):
   pipe(
     SC.extractFromIdCard(idcard),
     Option.match({
-      onNone: () => variants as VariantEntry[],
+      onNone: () => variants,
       onSome: (origin) => {
-        const filtered: VariantEntry[] = []
-        const fromOriginSet: VariantEntry[] = []
+        const isFromOrigin = (v: VariantEntry) => SC.extractAllFromCs(v.cs).some((c) => SC.equals(c, origin))
+        const isNonExtension = (v: VariantEntry) => SC.extractAllFromCs(v.cs).every((c) => !SC.isExtensionSet(c))
+        const hasNoCodes = (v: VariantEntry) => SC.extractAllFromCs(v.cs).length === 0
 
-        for (const v of variants) {
-          const codes = SC.extractAllFromCs(v.cs)
-          if (codes.length === 0) { filtered.push(v); continue }
-          if (codes.some((c) => SC.equals(c, origin))) { filtered.push(v); fromOriginSet.push(v); continue }
-          if (codes.every((c) => !SC.isExtensionSet(c))) { filtered.push(v) }
-        }
+        const filtered = variants.filter((v) => hasNoCodes(v) || isFromOrigin(v) || isNonExtension(v))
+        const fromOriginSet = filtered.filter(isFromOrigin)
 
-        if (filtered.length === 0) return variants as VariantEntry[]
+        if (filtered.length === 0) return variants
         if (fromOriginSet.length > 0 && fromOriginSet.length < filtered.length) return fromOriginSet
         return filtered
       },
@@ -121,11 +112,15 @@ const filterBySet = (idcard: IdCard) => (variants: ReadonlyArray<VariantEntry>):
   )
 
 /** Stage 4: Deduplicate — remove variants already in the wishlist */
-const dedup = (existingSuffixes: ReadonlySet<string> | undefined) =>
-  (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> => {
-    if (!existingSuffixes) return variants
-    return variants.filter((v) => !existingSuffixes.has(v.s))
-  }
+const dedup = (existingSuffixes: Option.Option<ReadonlySet<string>>) =>
+  (variants: ReadonlyArray<VariantEntry>): ReadonlyArray<VariantEntry> =>
+    pipe(
+      existingSuffixes,
+      Option.match({
+        onNone: () => variants,
+        onSome: (suffixes) => variants.filter((v) => !suffixes.has(v.s)),
+      }),
+    )
 
 /** Convert VariantEntry to VariantCandidate */
 const toCandidate = (v: VariantEntry): VariantCandidate => ({
@@ -141,7 +136,7 @@ const toCandidate = (v: VariantEntry): VariantCandidate => ({
 const resolveOne = (
   card: Card,
   entry: VariantsIndexEntry,
-  existingSuffixes: ReadonlySet<string> | undefined,
+  existingSuffixes: Option.Option<ReadonlySet<string>>,
 ): ResolutionResult => {
   const rarity = card.rarity
 
@@ -150,24 +145,21 @@ const resolveOne = (
 
   // 2. If user explicitly provided a serie, filter by it
   const serieResult = filterBySerie(card.serie)(byRarity)
-  let candidates = serieResult.result
-  // SP cards often live in different sets — don't flag serieMismatch
   const serieMismatch = !serieResult.matched && !R.isSP(rarity)
 
   // 3. For standard rarity, use set filter to auto-resolve
-  if (!serieMismatch && !R.isSP(rarity) && !R.isParallel(rarity) && !R.isUnknown(rarity)) {
-    if (candidates.length > 1) {
-      const bySet = filterBySet(card.idcard)(candidates)
-      if (bySet.length > 0 && bySet.length < candidates.length) {
-        candidates = bySet
-      }
-    }
-  }
+  const shouldApplySetFilter = !serieMismatch && !R.isSP(rarity) && !R.isParallel(rarity) && !R.isUnknown(rarity)
+  const afterSetFilter = shouldApplySetFilter && serieResult.result.length > 1
+    ? (() => {
+        const bySet = filterBySet(card.idcard)(serieResult.result)
+        return bySet.length > 0 && bySet.length < serieResult.result.length ? bySet : serieResult.result
+      })()
+    : serieResult.result
 
-  const candidatesBeforeDedup = candidates.length
+  const candidatesBeforeDedup = afterSetFilter.length
 
   // 4. Dedup
-  candidates = dedup(existingSuffixes)(candidates)
+  const candidates = dedup(existingSuffixes)(afterSetFilter)
 
   // 5. Classify result
   if (candidates.length === 0) {
@@ -178,14 +170,19 @@ const resolveOne = (
 
     // No candidates from rarity filter — fallback: retry without rarity filter
     if (!R.isUnknown(rarity)) {
-      let fallbackVariants: ReadonlyArray<VariantEntry> = entry.variants
-      if (card.serie) {
-        fallbackVariants = filterBySerie(card.serie)(fallbackVariants).result
-      }
-      let fallbackCandidates = fallbackVariants.map(toCandidate)
-      if (existingSuffixes) {
-        fallbackCandidates = fallbackCandidates.filter((c) => !existingSuffixes.has(c.suffix))
-      }
+      const fallbackVariants = card.serie
+        ? filterBySerie(card.serie)(entry.variants).result
+        : entry.variants
+      const fallbackCandidates = pipe(
+        fallbackVariants.map(toCandidate),
+        (cs) => pipe(
+          existingSuffixes,
+          Option.match({
+            onNone: () => cs,
+            onSome: (suffixes) => cs.filter((c) => !suffixes.has(c.suffix)),
+          }),
+        ),
+      )
       if (fallbackCandidates.length > 0) {
         return ResolutionResult.NeedsDisambiguation({
           card: fillSerie(card),
@@ -259,49 +256,60 @@ const applyResolvedVariant = (card: Card, v: VariantEntry, name: string): Card =
 // Main entry point — resolveVariants
 // ---------------------------------------------------------------------------
 
+export interface ResolveResult {
+  readonly resolved: ReadonlyArray<Card>
+  readonly ambiguous: ReadonlyArray<AmbiguousCard>
+}
+
+const buildExistingSuffixes = (
+  existingCards: Option.Option<ReadonlyArray<Card>>,
+): ReadonlyMap<string, ReadonlySet<string>> =>
+  pipe(
+    existingCards,
+    Option.match({
+      onNone: () => new Map<string, ReadonlySet<string>>(),
+      onSome: (cards) => {
+        const grouped = Map.groupBy(cards, (c) => String(c.idcard))
+        return new Map(
+          [...grouped.entries()].map(([id, cs]) => [
+            id,
+            new Set(cs.map((c) => Option.getOrElse(c.imageSuffix, () => ""))),
+          ]),
+        )
+      },
+    }),
+  )
+
 export const resolveVariants = (
   cards: ReadonlyArray<Card>,
   index: VariantsIndex,
-  existingCards?: ReadonlyArray<Card>,
-): { readonly resolved: ReadonlyArray<Card>; readonly ambiguous: ReadonlyArray<AmbiguousCard> } => {
-  // Build set of existing suffixes per idcard
-  const existingSuffixesByIdcard = new Map<string, Set<string>>()
-  if (existingCards) {
-    for (const c of existingCards) {
-      let set = existingSuffixesByIdcard.get(c.idcard)
-      if (!set) {
-        set = new Set()
-        existingSuffixesByIdcard.set(c.idcard, set)
-      }
-      set.add(Option.getOrElse(c.imageSuffix, () => ""))
-    }
-  }
+  existingCards: Option.Option<ReadonlyArray<Card>> = Option.none(),
+): ResolveResult => {
+  const suffixesByIdcard = buildExistingSuffixes(existingCards)
 
-  const resolved: Card[] = []
-  const ambiguous: AmbiguousCard[] = []
-
-  for (const card of cards) {
-    const entry = index[card.idcard]
-
-    if (!entry) {
-      resolved.push(fillSerie(card))
-      continue
-    }
-
-    const result = resolveOne(
-      card,
-      entry,
-      existingSuffixesByIdcard.get(card.idcard),
-    )
-
-    ResolutionResult.$match({
-      AutoResolved: ({ card: c }) => { resolved.push(c) },
-      NeedsDisambiguation: ({ card: c, candidates, canonicalName, reason }) => {
-        ambiguous.push(makeAmbiguousCard({ card: c, candidates, canonicalName, reason }))
-      },
-      AlreadyInWishlist: () => { /* skip */ },
-    })(result)
-  }
-
-  return { resolved, ambiguous }
+  return cards.reduce<ResolveResult>(
+    (acc, card) =>
+      pipe(
+        Option.fromNullable(index[card.idcard]),
+        Option.match({
+          onNone: () => ({ ...acc, resolved: [...acc.resolved, fillSerie(card)] }),
+          onSome: (entry) => {
+            const result = resolveOne(
+              card,
+              entry,
+              Option.fromNullable(suffixesByIdcard.get(String(card.idcard))),
+            )
+            return ResolutionResult.$match({
+              AutoResolved: ({ card: c }) => ({ ...acc, resolved: [...acc.resolved, c] }),
+              NeedsDisambiguation: ({ card: c, candidates, canonicalName, reason }) => ({
+                ...acc,
+                ambiguous: [...acc.ambiguous, makeAmbiguousCard({ card: c, candidates, canonicalName, reason })],
+              }),
+              AlreadyInWishlist: () => acc,
+            })(result)
+          },
+        }),
+      ),
+    { resolved: [], ambiguous: [] },
+  )
 }

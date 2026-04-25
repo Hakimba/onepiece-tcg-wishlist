@@ -88,33 +88,36 @@ export const SET_NAMES: Readonly<Record<string, string>> = {
 // Each variant is assigned to every set mentioned in its `cs` field.
 // ---------------------------------------------------------------------------
 
-const setCodesFromCs = (cs: string | null | undefined): ReadonlyArray<string> => {
-  if (!cs) return []
-  const codes = SC.extractAllFromCs(cs)
-  return codes.length > 0
-    ? codes.map((c) => SC.normalize(c))
-    : pipe(
-        cs,
-        SC.extractFromCs,
-        Option.map((c) => [SC.normalize(c)]),
-        Option.getOrElse((): string[] => []),
-      )
+const setCodesFromCs = (cs: Option.Option<string>): ReadonlyArray<string> =>
+  pipe(
+    cs,
+    Option.match({
+      onNone: () => [] as ReadonlyArray<string>,
+      onSome: (s) => {
+        const codes = SC.extractAllFromCs(s)
+        return codes.length > 0
+          ? codes.map(SC.normalize)
+          : pipe(
+              SC.extractFromCs(s),
+              Option.map((c) => [SC.normalize(c)]),
+              Option.getOrElse((): ReadonlyArray<string> => []),
+            )
+      },
+    }),
+  )
+
+const groupAppend = (
+  groups: ReadonlyMap<string, ReadonlyArray<SetVariantEntry>>,
+  key: string,
+  entry: SetVariantEntry,
+): Map<string, ReadonlyArray<SetVariantEntry>> => {
+  const m = new Map(groups)
+  m.set(key, [...(m.get(key) ?? []), entry])
+  return m
 }
 
-export const buildSetIndex = (
-  variantsIndex: VariantsIndex,
-  setLists?: SetLists,
-): ReadonlyMap<string, ReadonlyArray<SetVariantEntry>> => {
-  const map = new Map<string, SetVariantEntry[]>()
-
-  const push = (normalized: string, entry: SetVariantEntry) => {
-    let arr = map.get(normalized)
-    if (!arr) {
-      arr = []
-      map.set(normalized, arr)
-    }
-    arr.push(entry)
-  }
+const buildCsBasedIndex = (variantsIndex: VariantsIndex): Map<string, ReadonlyArray<SetVariantEntry>> => {
+  let groups: Map<string, ReadonlyArray<SetVariantEntry>> = new Map()
 
   for (const [key, indexEntry] of Object.entries(variantsIndex)) {
     const idcard = mkIdCard(key)
@@ -127,84 +130,95 @@ export const buildSetIndex = (
     )
 
     for (const variant of indexEntry.variants) {
-      const ve: SetVariantEntry = {
-        idcard,
-        name: indexEntry.name,
-        variant,
-        key: `${idcard}${variant.s}`,
-      }
-      const setCodes = setCodesFromCs(variant.cs)
+      const ve: SetVariantEntry = { idcard, name: indexEntry.name, variant, key: `${idcard}${variant.s}` }
+      const setCodes = setCodesFromCs(Option.fromNullable(variant.cs || undefined))
       if (setCodes.length > 0) {
-        for (const normalized of setCodes) push(normalized, ve)
+        for (const normalized of setCodes) groups = groupAppend(groups, normalized, ve)
       } else if (useIdcardFallback && idcardSet) {
-        push(idcardSet, ve)
+        groups = groupAppend(groups, idcardSet, ve)
       }
     }
   }
-
-  for (const [setCode, entries] of map) {
-    const hasParallel = new Set<string>()
-    for (const e of entries) {
-      if (e.variant.s.startsWith("_p")) hasParallel.add(e.idcard as string)
-    }
-    if (hasParallel.size > 0) {
-      map.set(
-        setCode,
-        entries.filter((e) =>
-          !(e.variant.s.startsWith("_r") && hasParallel.has(e.idcard as string)),
-        ),
-      )
-    }
-  }
-
-  // Phase 3: authoritative set lists replace cs-based results when available
-  if (setLists) {
-    for (const [rawCode, cardKeys] of Object.entries(setLists)) {
-      const normalized = rawCode.replace(/-/g, "")
-      const authoritative: SetVariantEntry[] = []
-      const seen = new Set<string>()
-
-      for (const cardKey of cardKeys) {
-        if (seen.has(cardKey)) continue
-        const underscoreIdx = cardKey.indexOf("_")
-        const idcard = underscoreIdx >= 0 ? cardKey.slice(0, underscoreIdx) : cardKey
-        const suffix = underscoreIdx >= 0 ? cardKey.slice(underscoreIdx) : ""
-
-        const indexEntry = variantsIndex[idcard]
-        if (!indexEntry) continue
-
-        const matchingVariant = indexEntry.variants.find((v) => v.s === suffix)
-        if (matchingVariant) {
-          authoritative.push({
-            idcard: mkIdCard(idcard),
-            name: indexEntry.name,
-            variant: matchingVariant,
-            key: cardKey,
-          })
-          seen.add(cardKey)
-          continue
-        }
-
-        const stdVariant = indexEntry.variants.find((v) => v.s === "")
-        if (!stdVariant) continue
-        const syntheticVariant: VariantEntry = suffix
-          ? { s: suffix, r: stdVariant.r, cs: stdVariant.cs }
-          : stdVariant
-        authoritative.push({
-          idcard: mkIdCard(idcard),
-          name: indexEntry.name,
-          variant: syntheticVariant,
-          key: cardKey,
-        })
-        seen.add(cardKey)
-      }
-
-      map.set(normalized, authoritative)
-    }
-  }
-
-  return map
+  return groups
 }
+
+const pruneRedundantReprints = (
+  groups: Map<string, ReadonlyArray<SetVariantEntry>>,
+): Map<string, ReadonlyArray<SetVariantEntry>> => {
+  const result = new Map<string, ReadonlyArray<SetVariantEntry>>()
+  for (const [setCode, entries] of groups) {
+    const parallelIds = new Set(
+      entries.filter((e) => e.variant.s.startsWith("_p")).map((e) => String(e.idcard)),
+    )
+    result.set(
+      setCode,
+      parallelIds.size > 0
+        ? entries.filter((e) => !(e.variant.s.startsWith("_r") && parallelIds.has(String(e.idcard))))
+        : entries,
+    )
+  }
+  return result
+}
+
+const resolveCardKey = (
+  cardKey: string,
+  variantsIndex: VariantsIndex,
+): Option.Option<SetVariantEntry> => {
+  const underscoreIdx = cardKey.indexOf("_")
+  const idcard = underscoreIdx >= 0 ? cardKey.slice(0, underscoreIdx) : cardKey
+  const suffix = underscoreIdx >= 0 ? cardKey.slice(underscoreIdx) : ""
+  return pipe(
+    Option.fromNullable(variantsIndex[idcard]),
+    Option.map((indexEntry) => {
+      const variant = indexEntry.variants.find((v) => v.s === suffix)
+        ?? pipe(
+          Option.fromNullable(indexEntry.variants.find((v) => v.s === "")),
+          Option.map((std): VariantEntry => suffix ? { s: suffix, r: std.r, cs: std.cs } : std),
+          Option.getOrUndefined,
+        )
+      return variant
+        ? Option.some<SetVariantEntry>({ idcard: mkIdCard(idcard), name: indexEntry.name, variant, key: cardKey })
+        : Option.none<SetVariantEntry>()
+    }),
+    Option.flatten,
+  )
+}
+
+const applySetLists = (
+  groups: Map<string, ReadonlyArray<SetVariantEntry>>,
+  setLists: Option.Option<SetLists>,
+  variantsIndex: VariantsIndex,
+): Map<string, ReadonlyArray<SetVariantEntry>> =>
+  pipe(
+    setLists,
+    Option.match({
+      onNone: () => groups,
+      onSome: (lists) => {
+        const result = new Map(groups)
+        for (const [rawCode, cardKeys] of Object.entries(lists)) {
+          const normalized = rawCode.replace(/-/g, "")
+          const seen = new Set<string>()
+          const authoritative = cardKeys.flatMap((cardKey) => {
+            if (seen.has(cardKey)) return []
+            seen.add(cardKey)
+            return pipe(resolveCardKey(cardKey, variantsIndex), Option.match({ onNone: () => [], onSome: (e) => [e] }))
+          })
+          result.set(normalized, authoritative)
+        }
+        return result
+      },
+    }),
+  )
+
+export const buildSetIndex = (
+  variantsIndex: VariantsIndex,
+  setLists: Option.Option<SetLists> = Option.none(),
+): ReadonlyMap<string, ReadonlyArray<SetVariantEntry>> =>
+  pipe(
+    buildCsBasedIndex(variantsIndex),
+    pruneRedundantReprints,
+    (groups) => applySetLists(groups, setLists, variantsIndex),
+  )
 
 // ---------------------------------------------------------------------------
 // availableRarities — raretés présentes dans les variantes du set
@@ -220,12 +234,12 @@ export const variantCategory = (v: VariantEntry): VariantCategory =>
 export const availableRarities = (
   entries: ReadonlyArray<SetVariantEntry>,
 ): ReadonlyArray<string> => {
-  const present = new Set<string>()
-  for (const e of entries) {
-    const cat = variantCategory(e.variant)
-    if (cat === "base") present.add(e.variant.r)
-    else present.add(cat)
-  }
+  const present = new Set(
+    entries.map((e) => {
+      const cat = variantCategory(e.variant)
+      return cat === "base" ? e.variant.r : cat
+    }),
+  )
   return RARITY_ORDER.filter((r) => present.has(r))
 }
 
@@ -256,10 +270,8 @@ export const filterByRarities = (
 const PREFIX_ORDER = ["OP", "EB", "ST", "PRB", "DON", "P"] as const
 
 const prefixRank = (code: string): number => {
-  for (let i = 0; i < PREFIX_ORDER.length; i++) {
-    if (code.startsWith(PREFIX_ORDER[i])) return i
-  }
-  return PREFIX_ORDER.length
+  const idx = PREFIX_ORDER.findIndex((p) => code.startsWith(p))
+  return idx >= 0 ? idx : PREFIX_ORDER.length
 }
 
 export const sortedSetCodes = (
@@ -289,18 +301,15 @@ export const setCategory = (code: string): SetCategory => {
 export const groupByCategory = (
   codes: ReadonlyArray<string>,
 ): ReadonlyArray<{ readonly category: SetCategory; readonly codes: ReadonlyArray<string> }> => {
-  const groups = new Map<SetCategory, string[]>()
-  for (const code of codes) {
-    const cat = setCategory(code)
-    let arr = groups.get(cat)
-    if (!arr) {
-      arr = []
-      groups.set(cat, arr)
-    }
-    arr.push(code)
-  }
+  const grouped = Map.groupBy(codes, setCategory)
   const order: ReadonlyArray<SetCategory> = ["Booster Packs", "Extra Booster", "Starter Decks", "Special", "Autres"]
-  return order
-    .filter((cat) => groups.has(cat))
-    .map((category) => ({ category, codes: groups.get(category)! }))
+  return order.flatMap((category) =>
+    pipe(
+      Option.fromNullable(grouped.get(category)),
+      Option.match({
+        onNone: () => [],
+        onSome: (entries) => [{ category, codes: entries }],
+      }),
+    ),
+  )
 }

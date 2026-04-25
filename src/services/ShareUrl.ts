@@ -1,4 +1,4 @@
-import { Either, pipe } from "effect"
+import { Either, Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
 import type { ShareDecodeError } from "../domain/SharedWishlist"
 import { toShareable, serializeCards, deserializeCards, fromShareable } from "../domain/SharedWishlist"
@@ -12,11 +12,13 @@ export const generateShareFragment = (cards: ReadonlyArray<Card>): string => {
   return `#${SHARE_PREFIX}${ShareCodec.encode(text)}`
 }
 
-export const extractSharePayload = (hash: string): string | null => {
-  if (!hash.startsWith(`#${SHARE_PREFIX}`)) return null
-  const payload = hash.slice(1 + SHARE_PREFIX.length)
-  return payload || null
-}
+export const extractSharePayload = (hash: string): Option.Option<string> =>
+  pipe(
+    hash,
+    Option.liftPredicate((h) => h.startsWith(`#${SHARE_PREFIX}`)),
+    Option.map((h) => h.slice(1 + SHARE_PREFIX.length)),
+    Option.flatMap(Option.liftPredicate((p) => p.length > 0)),
+  )
 
 export const decodeShareUrl = (
   encoded: string,
