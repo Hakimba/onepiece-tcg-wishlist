@@ -2417,6 +2417,30 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted, rgba(255, 255, 255, 0.5));
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.serie-swipe-btn-accept-all {
+  padding: 0.3rem 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.serie-swipe-btn-accept-all:active:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.serie-swipe-btn-accept-all:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .serie-swipe-stack {

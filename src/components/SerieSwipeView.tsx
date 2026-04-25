@@ -149,6 +149,14 @@ export default function SerieSwipeView({ entries, setCode, selectedKeys, onToggl
     setProcessedKeys((prev) => prev.slice(0, -1))
   }, [processedKeys, animating, onToggle, selectedKeys])
 
+  const handleAcceptAll = useCallback(() => {
+    if (animating || queue.length === 0) return
+    for (const entry of queue) {
+      if (!selectedKeys.has(entry.key)) onToggle(entry.key)
+    }
+    setProcessedKeys((prev) => [...prev, ...queue.map((e) => e.key)])
+  }, [animating, queue, selectedKeys, onToggle])
+
   const handleImgError = useCallback((key: string) => {
     setImgErrors((prev) => new Set(prev).add(key))
   }, [])
@@ -193,6 +201,14 @@ export default function SerieSwipeView({ entries, setCode, selectedKeys, onToggl
     <div className="serie-swipe-container">
       <div className="serie-swipe-progress">
         {processedKeys.length + 1} / {entries.length}
+        <button
+          type="button"
+          className="serie-swipe-btn-accept-all"
+          disabled={animating || queue.length === 0}
+          onClick={handleAcceptAll}
+        >
+          Tout accepter ({queue.length})
+        </button>
       </div>
 
       <div

@@ -3,7 +3,7 @@ import type { Card } from "./Card"
 import { IdCard, makeCard } from "./Card"
 import type { Rarity, StandardBase } from "./Rarity"
 import { Rarity as R, STANDARD_BASES, Standard, Parallel, SP, Promo, Unknown } from "./Rarity"
-import { Empty } from "./Price"
+import { Empty, parsePrice, displayPrice } from "./Price"
 import type { VariantsIndex } from "../services/VariantResolver"
 import * as SC from "./SetCode"
 
@@ -15,6 +15,9 @@ export interface ShareableCard {
   readonly idcard: IdCard
   readonly rarity: Rarity
   readonly imageSuffix: string
+  readonly favorite: boolean
+  readonly price: string
+  readonly buyLink: string
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +70,9 @@ export const toShareable = (card: Card): ShareableCard => ({
   idcard: card.idcard,
   rarity: card.rarity,
   imageSuffix: Option.getOrElse(card.imageSuffix, () => ""),
+  favorite: card.favorite,
+  price: displayPrice(card.price),
+  buyLink: Option.getOrElse(card.buyLink, () => ""),
 })
 
 // ---------------------------------------------------------------------------
@@ -89,8 +95,10 @@ export const fromShareable = (
     serie,
     character,
     rarity: sc.rarity,
-    price: Empty(),
+    price: sc.price ? parsePrice(sc.price) : Empty(),
     imageSuffix: sc.imageSuffix || undefined,
+    favorite: sc.favorite,
+    buyLink: sc.buyLink || undefined,
   })
 }
 
@@ -104,9 +112,8 @@ export const serializeCards = (cards: ReadonlyArray<ShareableCard>): string =>
   cards
     .map((c) => {
       const code = RARITY_TO_CODE(c.rarity)
-      return c.imageSuffix
-        ? `${c.idcard},${code},${c.imageSuffix}`
-        : `${c.idcard},${code}`
+      const fav = c.favorite ? "1" : "0"
+      return `${c.idcard},${code},${c.imageSuffix},${fav},${c.price},${c.buyLink}`
     })
     .join("\n")
 
@@ -131,6 +138,9 @@ export const deserializeCards = (
       idcard: IdCard(parts[0].trim().toUpperCase()),
       rarity: codeToRarity(parts[1].trim()),
       imageSuffix: parts[2]?.trim() ?? "",
+      favorite: parts[3]?.trim() === "1",
+      price: parts[4]?.trim() ?? "",
+      buyLink: parts[5]?.trim() ?? "",
     })
   }
   return Either.right(cards)
