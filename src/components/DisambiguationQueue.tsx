@@ -3,7 +3,7 @@ import { Option } from 'effect';
 import type { Card } from '../domain/Card';
 import { CharacterName, makeCardId } from '../domain/Card';
 import type { AmbiguousCard, DisambiguationMode } from '../domain/Disambiguation';
-import { isMultiSelect, toggleChoice } from '../domain/Disambiguation';
+import { isMultiSelect, toggleChoice, groupByReason } from '../domain/Disambiguation';
 import { fromDotgg, Unknown } from '../domain/Rarity';
 import { variantImageUrl } from '../services/ImageResolver';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -226,60 +226,44 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
         </p>
       )}
       <div className="disambiguation-list">
-        {(() => {
-          const mismatch: { item: AmbiguousCard; i: number }[] = [];
-          const unknown: { item: AmbiguousCard; i: number }[] = [];
-          const ambig: { item: AmbiguousCard; i: number }[] = [];
-          items.forEach((item, i) => {
-            const tag = item.reason._tag;
-            if (tag === 'RarityMismatch' || tag === 'SerieMismatch') mismatch.push({ item, i });
-            else if (tag === 'UnspecifiedRarity') unknown.push({ item, i });
-            else if (tag === 'MultipleVariants') ambig.push({ item, i });
-          });
-          const sections: { label: string; entries: { item: AmbiguousCard; i: number }[] }[] = [];
-          if (mismatch.length > 0) sections.push({ label: 'Rareté ou série inexistante pour cette carte', entries: mismatch });
-          if (ambig.length > 0) sections.push({ label: 'Plusieurs variantes possibles', entries: ambig });
-          if (unknown.length > 0) sections.push({ label: 'Toutes les variantes (rareté non précisée)', entries: unknown });
-
-          return sections.map((section) => (
-            <div key={section.label}>
-              <div className="disambiguation-section-label">{section.label}</div>
-              {section.entries.map(({ item, i }) => {
-                const displayRar = item.reason._tag === 'RarityMismatch'
-                  ? Unknown()
-                  : item.card.rarity;
-                return (
-                  <button
-                    key={item.card.idcard + String(i)}
-                    className={`disambiguation-entry ${item.chosenIndices.length > 0 ? 'resolved' : ''}`}
-                    onClick={() => setActiveIndex(i)}
-                  >
-                    <div className="disambiguation-entry-info">
-                      <span className="disambiguation-entry-id">{item.card.idcard}</span>
-                      <span className="disambiguation-entry-name">
-                        {item.card.character || item.canonicalName}
-                      </span>
-                      <RarityBadge rarity={displayRar} size="xs" />
-                    </div>
-                    <div className="disambiguation-entry-right">
-                      <span className="disambiguation-entry-count">
-                        {isMultiSelect(item.reason) && item.chosenIndices.length > 0
-                          ? `${item.chosenIndices.length}/${item.candidates.length}`
-                          : `${item.candidates.length} variantes`
-                        }
-                      </span>
-                      {item.chosenIndices.length > 0 && (
-                        <svg className="disambiguation-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ));
-        })()}
+        {groupByReason(items).map((section) => (
+          <div key={section.label}>
+            <div className="disambiguation-section-label">{section.label}</div>
+            {section.entries.map(({ item, i }) => {
+              const displayRar = item.reason._tag === 'RarityMismatch'
+                ? Unknown()
+                : item.card.rarity;
+              return (
+                <button
+                  key={item.card.idcard + String(i)}
+                  className={`disambiguation-entry ${item.chosenIndices.length > 0 ? 'resolved' : ''}`}
+                  onClick={() => setActiveIndex(i)}
+                >
+                  <div className="disambiguation-entry-info">
+                    <span className="disambiguation-entry-id">{item.card.idcard}</span>
+                    <span className="disambiguation-entry-name">
+                      {item.card.character || item.canonicalName}
+                    </span>
+                    <RarityBadge rarity={displayRar} size="xs" />
+                  </div>
+                  <div className="disambiguation-entry-right">
+                    <span className="disambiguation-entry-count">
+                      {isMultiSelect(item.reason) && item.chosenIndices.length > 0
+                        ? `${item.chosenIndices.length}/${item.candidates.length}`
+                        : `${item.candidates.length} variantes`
+                      }
+                    </span>
+                    {item.chosenIndices.length > 0 && (
+                      <svg className="disambiguation-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
       <button
         className="btn-add btn-submit"

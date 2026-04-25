@@ -65,7 +65,7 @@ function App() {
     }
   }, [state._tag]);
 
-  useOnlineSync(cards, ctx?.spIndex);
+  useOnlineSync(cards, Option.fromNullable(ctx?.spIndex));
 
   const validPrefixes = useMemo((): ReadonlySet<SetCode> => {
     const s = new Set<SetCode>();

@@ -23,7 +23,7 @@ type SlidePhase = 'idle' | 'out' | 'entering' | 'in';
 interface Props {
   card: Card;
   onBack: () => void;
-  onUpdate: (card: Card, oldId?: CardId) => void;
+  onUpdate: (card: Card, oldId?: Option.Option<CardId>) => void;
   onDelete: (id: CardId) => void;
   onToggleFavorite: (id: CardId) => void;
   onSwipe: (direction: 'left' | 'right') => void;
@@ -88,7 +88,7 @@ export default function CardDetail({
     setEditing(false);
     setZoomed(false);
     setEditSerie(card.serie);
-    setEditIdcard(card.idcard as string);
+    setEditIdcard(String(card.idcard));
     setEditCharacter(card.character);
     setEditPrice(displayPrice(card.price));
     setEditRarity(card.rarity);
@@ -174,7 +174,7 @@ export default function CardDetail({
     const newRarity = editEffectiveRarity;
     const newIdcard = normalizeIdCard(editIdcard);
     const newId = makeCardId(newIdcard, newRarity);
-    const oldId = card.id !== newId ? card.id : undefined;
+    const oldId = card.id !== newId ? Option.some(card.id) : Option.none<CardId>();
     const trimmedLink = editBuyLink.trim();
     onUpdate(
       {
@@ -194,7 +194,7 @@ export default function CardDetail({
 
   const handleEditCancel = () => {
     setEditSerie(card.serie);
-    setEditIdcard(card.idcard as string);
+    setEditIdcard(String(card.idcard));
     setEditCharacter(card.character);
     setEditPrice(displayPrice(card.price));
     setEditRarity(card.rarity);

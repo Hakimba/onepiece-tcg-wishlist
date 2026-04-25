@@ -176,24 +176,29 @@ const downloadViaLink = (csv: string): void => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export const downloadCsv = (cards: ReadonlyArray<Card>): void => {
+const shareFile = async (csv: string): Promise<boolean> => {
+  const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })
+  if (!navigator.canShare?.({ files: [file] })) return false
+  try { await navigator.share({ files: [file] }); return true } catch { return false }
+}
+
+const copyToClipboard = async (csv: string): Promise<boolean> => {
+  try { await navigator.clipboard.writeText(csv); return true } catch { return false }
+}
+
+export type ExportResult = "ok" | "clipboard" | "fail"
+
+export const downloadCsv = async (cards: ReadonlyArray<Card>): Promise<ExportResult> => {
   const csv = exportCsv(cards)
 
   if (isIOSStandalone()) {
-    if (downloadViaOpen(csv)) return
-    if (navigator.share) {
-      navigator.share({ text: csv }).catch(() => {})
-      return
-    }
+    if (downloadViaOpen(csv)) return "ok"
+    if (navigator.share && await shareFile(csv)) return "ok"
+    if (await copyToClipboard(csv)) return "clipboard"
+    return "fail"
   }
 
-  if (navigator.share) {
-    const file = new File([csv], "onepiece-wishlist.csv", { type: "text/csv" })
-    if (navigator.canShare?.({ files: [file] })) {
-      navigator.share({ files: [file] }).catch(() => downloadViaLink(csv))
-      return
-    }
-  }
-
+  if (navigator.share && await shareFile(csv)) return "ok"
   downloadViaLink(csv)
+  return "ok"
 }

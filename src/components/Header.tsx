@@ -108,7 +108,7 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
           <div className="sort-toggle">
             <button
               className={sortPrice === 'asc' ? 'active' : ''}
-              onClick={() => onSortPrice(sortPrice === 'asc' ? null : 'asc')}
+              onClick={() => onSortPrice(sortPrice === 'asc' ? 'none' : 'asc')}
               title="Prix croissant"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -119,7 +119,7 @@ export default function Header({ view, onViewChange, onAdd, onOpenImportModal, o
             </button>
             <button
               className={sortPrice === 'desc' ? 'active' : ''}
-              onClick={() => onSortPrice(sortPrice === 'desc' ? null : 'desc')}
+              onClick={() => onSortPrice(sortPrice === 'desc' ? 'none' : 'desc')}
               title="Prix d&eacute;croissant"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

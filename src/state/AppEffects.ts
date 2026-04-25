@@ -1,4 +1,4 @@
-import { Effect, Either, Option } from "effect"
+import { Effect, Either, Option, pipe } from "effect"
 import { CardRepository } from "../services/CardRepository"
 import { SpIndexService, VariantsIndexService, SetListsService } from "../services/IndexLoader"
 import { parseCsv } from "../services/CsvCodec"
@@ -93,12 +93,7 @@ export const importCsv = (
       }))
     }
 
-    const seen = new Set<string>()
-    const deduped = resolved.filter((c: Card) => {
-      if (seen.has(c.id)) return false
-      seen.add(c.id)
-      return true
-    })
+    const deduped = [...new Map(resolved.map((c: Card) => [c.id, c])).values()]
     const repo = yield* CardRepository
     yield* repo.saveAll(deduped)
 
@@ -115,7 +110,7 @@ export const addCard = (
   existingCards: ReadonlyArray<Card>,
 ) =>
   Effect.gen(function* () {
-    const { resolved, ambiguous } = resolveVariants([card], variantsIndex, existingCards)
+    const { resolved, ambiguous } = resolveVariants([card], variantsIndex, Option.some(existingCards))
 
     if (ambiguous.length > 0) {
       return action(AppAction.StartDisambiguation({
@@ -150,7 +145,7 @@ export const addCard = (
 export const updateCard = (card: Card, oldId: Option.Option<CardId>) =>
   Effect.gen(function* () {
     const repo = yield* CardRepository
-    const updated = yield* repo.update(card, Option.getOrUndefined(oldId))
+    const updated = yield* repo.update(card, oldId)
     return action(AppAction.CardsUpdated({ cards: updated }))
   })
 
@@ -171,12 +166,18 @@ export const deleteCard = (id: CardId) =>
 
 export const toggleFavorite = (cards: ReadonlyArray<Card>, id: CardId) =>
   Effect.gen(function* () {
-    const card = cards.find((c) => c.id === id)
-    if (!card) return action(AppAction.CardsUpdated({ cards }))
-    const updated = { ...card, favorite: !card.favorite }
-    const repo = yield* CardRepository
-    const newCards = yield* repo.update(updated)
-    return action(AppAction.CardsUpdated({ cards: newCards }))
+    return yield* pipe(
+      Option.fromNullable(cards.find((c) => c.id === id)),
+      Option.match({
+        onNone: () => Effect.succeed(action(AppAction.CardsUpdated({ cards }))),
+        onSome: (card) => Effect.gen(function* () {
+          const updated = { ...card, favorite: !card.favorite }
+          const repo = yield* CardRepository
+          const newCards = yield* repo.update(updated, Option.none())
+          return action(AppAction.CardsUpdated({ cards: newCards }))
+        }),
+      }),
+    )
   })
 
 // ---------------------------------------------------------------------------
@@ -225,15 +226,12 @@ export const finishDisambiguation = (
 
     if (mode === "add") {
       const current = yield* repo.loadAll
-      const merged = [...current]
-      for (const c of resultCards) {
-        if (!merged.some((x) => x.id === c.id)) merged.push(c)
-      }
+      const existingIds = new Set(current.map((c: Card) => c.id))
+      const merged = [...current, ...resultCards.filter((c) => !existingIds.has(c.id))]
       yield* repo.saveAll(merged)
       return action(AppAction.CardsUpdated({ cards: merged }))
     }
 
-    // Import mode: full replacement
     yield* repo.saveAll(resultCards)
     return action(AppAction.CardsUpdated({ cards: resultCards }))
   })

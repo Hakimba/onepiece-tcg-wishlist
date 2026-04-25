@@ -83,22 +83,25 @@ export const fromShareable = (
   sc: ShareableCard,
   variantsIndex: VariantsIndex,
 ): Card => {
-  const entry = variantsIndex[sc.idcard as string]
-  const character = entry?.name ?? ""
+  const character = pipe(
+    Option.fromNullable(variantsIndex[String(sc.idcard)]),
+    Option.map((e) => e.name),
+    Option.getOrElse(() => ""),
+  )
   const serie = pipe(
     SC.extractFromIdCard(sc.idcard),
     Option.map(String),
     Option.getOrElse(() => ""),
   )
   return makeCard({
-    idcard: sc.idcard as string,
+    idcard: String(sc.idcard),
     serie,
     character,
     rarity: sc.rarity,
-    price: sc.price ? parsePrice(sc.price) : Empty(),
-    imageSuffix: sc.imageSuffix || undefined,
+    price: sc.price.length > 0 ? parsePrice(sc.price) : Empty(),
+    imageSuffix: sc.imageSuffix.length > 0 ? sc.imageSuffix : undefined,
     favorite: sc.favorite,
-    buyLink: sc.buyLink || undefined,
+    buyLink: sc.buyLink.length > 0 ? sc.buyLink : undefined,
   })
 }
 
@@ -121,27 +124,28 @@ export const serializeCards = (cards: ReadonlyArray<ShareableCard>): string =>
 // Deserialize: compact text → Either<cards, error>
 // ---------------------------------------------------------------------------
 
+const parseLine = (line: string): Either.Either<ShareableCard, ShareDecodeError> => {
+  const parts = line.split(",")
+  if (parts.length < 2) {
+    return Either.left(ShareDecodeError.MalformedPayload({ detail: `bad line: ${line}` }))
+  }
+  const at = (i: number): string => parts[i]?.trim() ?? ""
+  return Either.right({
+    idcard: IdCard(at(0).toUpperCase()),
+    rarity: codeToRarity(at(1)),
+    imageSuffix: at(2),
+    favorite: at(3) === "1",
+    price: at(4),
+    buyLink: at(5),
+  })
+}
+
 export const deserializeCards = (
   text: string,
 ): Either.Either<ReadonlyArray<ShareableCard>, ShareDecodeError> => {
-  const lines = text.split("\n").filter((l) => l.trim() !== "")
+  const lines = text.split("\n").filter((l) => l.trim().length > 0)
   if (lines.length === 0) {
     return Either.left(ShareDecodeError.MalformedPayload({ detail: "empty payload" }))
   }
-  const cards: ShareableCard[] = []
-  for (const line of lines) {
-    const parts = line.split(",")
-    if (parts.length < 2) {
-      return Either.left(ShareDecodeError.MalformedPayload({ detail: `bad line: ${line}` }))
-    }
-    cards.push({
-      idcard: IdCard(parts[0].trim().toUpperCase()),
-      rarity: codeToRarity(parts[1].trim()),
-      imageSuffix: parts[2]?.trim() ?? "",
-      favorite: parts[3]?.trim() === "1",
-      price: parts[4]?.trim() ?? "",
-      buyLink: parts[5]?.trim() ?? "",
-    })
-  }
-  return Either.right(cards)
+  return Either.all(lines.map(parseLine))
 }

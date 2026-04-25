@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Option } from 'effect';
+import { Option, pipe } from 'effect';
 import type { Card } from '../domain/Card';
 import { makeCard, normalizeIdCard } from '../domain/Card';
 import type { Rarity as RarityType } from '../domain/Rarity';
@@ -35,16 +35,21 @@ export default function AddCardForm({ onAdd, onCancel, error, validPrefixes }: P
     e.preventDefault();
     const id = normalizeIdCard(idcard);
     if (!id) { setIdError('ID carte requis'); return; }
-    if (!ID_STRUCTURE_REGEX.test(id as string)) {
+    if (!ID_STRUCTURE_REGEX.test(String(id))) {
       setIdError('Format invalide (ex: OP01-013, P-033)');
       return;
     }
-    const prefix = Option.getOrNull(setCode);
-    if (!prefix || !validPrefixes.has(prefix)) {
-      const display = prefix ?? (id as string).match(/^([A-Z]+\d*)/)?.[1] ?? id;
+    if (Option.isNone(setCode) || !validPrefixes.has(setCode.value)) {
+      const display = pipe(
+        setCode,
+        Option.map(String),
+        Option.orElse(() => pipe(Option.fromNullable(String(id).match(/^([A-Z]+\d*)/)), Option.map((m) => m[1]))),
+        Option.getOrElse(() => String(id)),
+      );
       setIdError(`Préfixe inconnu "${display}" (ex: OP01, ST01, P, EB01)`);
       return;
     }
+    const prefix = setCode.value;
     const prefixStr = String(prefix);
     if (serie.trim() && prefixStr !== serie.trim().toUpperCase()) {
       setIdError(`Série incohérente avec l'ID (attendu: ${prefixStr})`);

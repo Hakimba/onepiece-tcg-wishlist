@@ -19,31 +19,38 @@ export const extractFromIdCard = (idcard: IdCard): Option.Option<SetCode> =>
     Option.map((m) => SetCode(m[1])),
   )
 
-export const extractFromCs = (cs: string): Option.Option<SetCode> => {
-  const bracketMatch = cs.match(/\[([A-Z0-9-]+)\]/)
-  if (bracketMatch) return Option.some(SetCode(bracketMatch[1]))
-  const bare = cs.trim()
-  if (/^[A-Z]+\d*-?\d+$/.test(bare)) return Option.some(SetCode(bare))
-  return Option.none()
-}
+export const extractFromCs = (cs: string): Option.Option<SetCode> =>
+  pipe(
+    Option.fromNullable(cs.match(/\[([A-Z0-9-]+)\]/)),
+    Option.map((m) => SetCode(m[1])),
+    Option.orElse(() => {
+      const bare = cs.trim()
+      return /^[A-Z]+\d*-?\d+$/.test(bare) ? Option.some(SetCode(bare)) : Option.none()
+    }),
+  )
 
-export const extractAllFromCs = (cs: string): ReadonlyArray<SetCode> => {
-  const bracketMatch = cs.match(/\[([A-Z0-9-]+)\]/)
-  if (!bracketMatch) {
-    const bare = cs.trim()
-    return /^[A-Z]+\d*-?\d+$/.test(bare) ? [SetCode(bare)] : []
-  }
-  const raw = bracketMatch[1]
-  const parts = raw.match(/[A-Z]+\d+/g)
-  return parts ? parts.map(SetCode) : [SetCode(raw)]
-}
+export const extractAllFromCs = (cs: string): ReadonlyArray<SetCode> =>
+  pipe(
+    Option.fromNullable(cs.match(/\[([A-Z0-9-]+)\]/)),
+    Option.match({
+      onNone: () => {
+        const bare = cs.trim()
+        return /^[A-Z]+\d*-?\d+$/.test(bare) ? [SetCode(bare)] : []
+      },
+      onSome: (m) => pipe(
+        Option.fromNullable(m[1].match(/[A-Z]+\d+/g)),
+        Option.map((parts) => parts.map(SetCode)),
+        Option.getOrElse(() => [SetCode(m[1])]),
+      ),
+    }),
+  )
 
 // ---------------------------------------------------------------------------
 // Normalization & comparison
 // ---------------------------------------------------------------------------
 
 export const normalize = (code: SetCode): string =>
-  (code as string).replace(/-/g, "")
+  String(code).replace(/-/g, "")
 
 export const equals = (a: SetCode, b: SetCode): boolean =>
   normalize(a) === normalize(b)
@@ -55,10 +62,10 @@ export const equals = (a: SetCode, b: SetCode): boolean =>
 const EXTENSION_PREFIXES = ["OP", "EB", "ST", "PRB"] as const
 
 export const isExtensionSet = (code: SetCode): boolean =>
-  EXTENSION_PREFIXES.some((p) => (code as string).startsWith(p))
+  EXTENSION_PREFIXES.some((p) => String(code).startsWith(p))
 
 export const isPromoPrefix = (code: SetCode): boolean =>
-  (code as string) === "P"
+  String(code) === "P"
 
 export const isPromoId = (idcard: IdCard): boolean =>
   pipe(extractFromIdCard(idcard), Option.map(isPromoPrefix), Option.getOrElse(() => false))
