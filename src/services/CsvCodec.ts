@@ -152,18 +152,6 @@ const isIOSStandalone = (): boolean =>
   ((/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) &&
     window.matchMedia("(display-mode: standalone)").matches)
 
-const downloadViaOpen = (csv: string): boolean => {
-  const blob = new Blob([csv], { type: "text/csv" })
-  const url = URL.createObjectURL(blob)
-  const win = window.open(url)
-  if (win) {
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    return true
-  }
-  URL.revokeObjectURL(url)
-  return false
-}
-
 const downloadViaLink = (csv: string): void => {
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
@@ -191,8 +179,11 @@ export type ExportResult = "ok" | "clipboard" | "fail"
 export const downloadCsv = async (cards: ReadonlyArray<Card>): Promise<ExportResult> => {
   const csv = exportCsv(cards)
 
+  // iOS PWA standalone: window.open(blobUrl) opens a Safari "view" but can't
+  // preview text/csv → blank page. Yet `win !== null` so downloadViaOpen
+  // reports success and the cascade never reaches shareFile. Skip it entirely
+  // here and use the share sheet directly — user picks "Save to Files".
   if (isIOSStandalone()) {
-    if (downloadViaOpen(csv)) return "ok"
     if (await shareFile(csv)) return "ok"
     if (await copyToClipboard(csv)) return "clipboard"
     return "fail"

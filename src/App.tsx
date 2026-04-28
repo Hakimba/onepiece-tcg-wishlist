@@ -20,7 +20,6 @@ import CharactersPage from './components/CharactersPage';
 import BackToTop from './components/BackToTop';
 import ImportModal from './components/ImportModal';
 import SharedView from './components/SharedView';
-import { useOnlineSync } from './hooks/useOnlineSync';
 import './styles/app.css';
 
 function App() {
@@ -40,6 +39,7 @@ function App() {
     handleUpdate,
     handleDelete,
     handleToggleFavorite,
+    handleSelectCardIndex,
     handleClear,
     handleDisambiguationFinish,
     handleSwipe,
@@ -64,8 +64,6 @@ function App() {
       requestAnimationFrame(() => window.scrollTo(0, scrollYRef.current));
     }
   }, [state._tag]);
-
-  useOnlineSync(cards, Option.fromNullable(ctx?.spIndex));
 
   const validPrefixes = useMemo((): ReadonlySet<SetCode> => {
     const s = new Set<SetCode>();
@@ -222,14 +220,14 @@ function App() {
         {ui.view === 'list' ? (
           <ListView
             cards={filteredCards}
-            onSelect={(i) => dispatch(AppAction.SelectCard({ index: i }))}
+            onSelect={handleSelectCardIndex}
             onToggleFavorite={handleToggleFavorite}
             spIndex={ctx.spIndex}
           />
         ) : (
           <MosaicView
             cards={filteredCards}
-            onSelect={(i) => dispatch(AppAction.SelectCard({ index: i }))}
+            onSelect={handleSelectCardIndex}
             onToggleFavorite={handleToggleFavorite}
             spIndex={ctx.spIndex}
           />

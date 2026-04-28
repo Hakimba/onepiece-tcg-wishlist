@@ -1,70 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react"
-import { imageCacheGet, imageCachePut, canvasToBlob } from "../services/ImageCacheRepository"
+import { useCallback } from "react"
 
-const memoryCache = new Map<string, string>()
-// Bumped from 200 to 500 so wishlists with 200+ cards in mosaic don't trigger LRU
-// eviction that revokes blob URLs still referenced by mounted <img> elements.
-const MAX_MEMORY = 500
+// Trivial passthrough hook. The blob caching layer (canvasToBlob + IDB) is gone:
+// the dotgg CDN doesn't send CORS headers so the canvas / fetch round-trip
+// always failed silently, leaving the IDB store empty for everyone. The service
+// worker (vite-plugin-pwa CacheFirst on static.dotgg.gg/onepiece/card/*.webp)
+// already handles caching and offline serving, plus the browser's HTTP cache.
+// We keep the hook signature so call sites (CardImage, CardDetail) don't churn.
 
-function evictOldest() {
-  if (memoryCache.size <= MAX_MEMORY) return
-  const first = memoryCache.keys().next().value
-  if (first !== undefined) {
-    URL.revokeObjectURL(memoryCache.get(first)!)
-    memoryCache.delete(first)
-  }
-}
+const noop = () => {}
 
 export function useImageCache(cdnUrl: string | null): {
   src: string | null
   onImgLoad: () => void
 } {
-  const memorySrc = cdnUrl ? memoryCache.get(cdnUrl) ?? null : null
-
-  const [blobSrc, setBlobSrc] = useState<string | null>(memorySrc)
-  const urlRef = useRef(cdnUrl)
-  urlRef.current = cdnUrl
-
-  useEffect(() => {
-    if (!cdnUrl) {
-      setBlobSrc(null)
-      return
-    }
-
-    const cached = memoryCache.get(cdnUrl)
-    if (cached) {
-      setBlobSrc(cached)
-      return
-    }
-
-    let cancelled = false
-
-    imageCacheGet(cdnUrl)
-      .then((blob) => {
-        if (cancelled || urlRef.current !== cdnUrl || !blob) return
-        const url = URL.createObjectURL(blob)
-        memoryCache.set(cdnUrl, url)
-        evictOldest()
-        setBlobSrc(url)
-      })
-      .catch(() => {})
-
-    return () => {
-      cancelled = true
-    }
-  }, [cdnUrl])
-
-  const onImgLoad = useCallback(() => {
-    const url = urlRef.current
-    if (!url || memoryCache.has(url)) return
-    canvasToBlob(url).then((blob) => {
-      if (!blob || urlRef.current !== url) return
-      imageCachePut(url, blob).catch(() => {})
-    }).catch(() => {})
-  }, [])
-
-  return {
-    src: blobSrc ?? cdnUrl,
-    onImgLoad,
-  }
+  return { src: cdnUrl, onImgLoad: useCallback(noop, []) }
 }
