@@ -1,6 +1,7 @@
 import { Option, pipe } from "effect"
 import type { Card } from "./Card"
 import type { SetCode } from "./SetCode"
+import * as SC from "./SetCode"
 import * as R from "./Rarity"
 import type { RarityCategory } from "./Rarity"
 import * as P from "./Price"
@@ -29,8 +30,18 @@ export const defaultFilters: FilterState = {
 // Predicates — each filter = Card -> boolean, composable
 // ---------------------------------------------------------------------------
 
-const bySeries = (series: ReadonlyArray<string>) => (card: Card): boolean =>
-  series.length === 0 || series.includes(card.serie)
+// Filter by serie : compare against the canonical idcard prefix, falling back to
+// card.serie. Robust against legacy cards with empty serie, SerieBrowser-imported
+// cards stored under the navigation set, and cross-set variants whose `cs` differs
+// from the idcard prefix.
+const bySeries = (series: ReadonlyArray<SetCode>) => (card: Card): boolean => {
+  if (series.length === 0) return true
+  const canonical = pipe(
+    SC.extractFromIdCard(card.idcard),
+    Option.getOrElse(() => card.serie),
+  )
+  return series.some((s) => SC.equals(s, canonical))
+}
 
 const byRarityBases = (bases: ReadonlyArray<RarityCategory>) => (card: Card): boolean => {
   if (bases.length === 0) return true

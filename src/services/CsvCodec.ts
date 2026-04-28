@@ -193,12 +193,12 @@ export const downloadCsv = async (cards: ReadonlyArray<Card>): Promise<ExportRes
 
   if (isIOSStandalone()) {
     if (downloadViaOpen(csv)) return "ok"
-    if (navigator.share && await shareFile(csv)) return "ok"
+    if (await shareFile(csv)) return "ok"
     if (await copyToClipboard(csv)) return "clipboard"
     return "fail"
   }
 
-  if (navigator.share && await shareFile(csv)) return "ok"
+  if (await shareFile(csv)) return "ok"
   downloadViaLink(csv)
   return "ok"
 }

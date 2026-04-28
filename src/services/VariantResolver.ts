@@ -248,7 +248,8 @@ const applyResolvedVariant = (card: Card, v: VariantEntry, name: string): Card =
     edition: Option.some(v.cs),
     imageSuffix: Option.some(v.s),
     rarity: newRarity,
-    id: needsRarityFill ? makeCardId(card.idcard, newRarity) : card.id,
+    // Always recompute id: imageSuffix is part of the identity now (Fix 3).
+    id: makeCardId(card.idcard, newRarity, v.s),
   }
 }
 

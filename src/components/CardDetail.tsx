@@ -173,7 +173,7 @@ export default function CardDetail({
   const handleEditSave = () => {
     const newRarity = editEffectiveRarity;
     const newIdcard = normalizeIdCard(editIdcard);
-    const newId = makeCardId(newIdcard, newRarity);
+    const newId = makeCardId(newIdcard, newRarity, Option.getOrUndefined(card.imageSuffix));
     const oldId = card.id !== newId ? Option.some(card.id) : Option.none<CardId>();
     const trimmedLink = editBuyLink.trim();
     onUpdate(

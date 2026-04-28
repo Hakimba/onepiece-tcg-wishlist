@@ -5,6 +5,7 @@ import type { CardId } from "../domain/Card"
 import type { AppContext, UIState, ViewMode, SortPrice } from "../state/AppState"
 import { AppAction } from "../state/AppAction"
 import { toPredicate, hasActiveFilters } from "../domain/Filter"
+import * as SC from "../domain/SetCode"
 import { comparePrice } from "../domain/Price"
 import { displayPriceOrDash } from "../domain/Price"
 import type { SpIndex } from "../services/ImageResolver"
@@ -61,7 +62,9 @@ export default function SharedView({ ctx, ui, dispatch, theme, toggleTheme }: Pr
   )
 
   const allSeries = useMemo(
-    () => [...new Set(ctx.cards.map((c) => c.serie))].sort(),
+    () => [...new Set(
+      ctx.cards.map((c) => pipe(SC.extractFromIdCard(c.idcard), Option.getOrElse(() => c.serie))),
+    )].sort(),
     [ctx.cards],
   )
 
