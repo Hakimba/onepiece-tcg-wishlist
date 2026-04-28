@@ -85,10 +85,12 @@ export const importCsv = (
     const imported = parsed.right
     const { resolved, ambiguous } = resolveVariants(imported, variantsIndex)
 
-    // Dedup both lists by card id (id includes idcard + rarity + imageSuffix
-    // post-PR #27 — so true 100%-identical CSV rows collapse here).
-    const dedupedResolved = [...new Map(resolved.map((c: Card) => [c.id, c])).values()]
-    const dedupedAmbiguous = [...new Map(ambiguous.map((a) => [a.card.id, a])).values()]
+    // CardId already encodes (idcard, rarity, imageSuffix), so 100%-identical
+    // CSV rows collapse to a single entry through this dedup.
+    const dedupBy = <T>(items: ReadonlyArray<T>, keyOf: (t: T) => string): T[] =>
+      [...new Map(items.map((t) => [keyOf(t), t])).values()]
+    const dedupedResolved = dedupBy(resolved, (c) => c.id)
+    const dedupedAmbiguous = dedupBy(ambiguous, (a) => a.card.id)
 
     if (dedupedAmbiguous.length > 0) {
       return action(AppAction.StartDisambiguation({
