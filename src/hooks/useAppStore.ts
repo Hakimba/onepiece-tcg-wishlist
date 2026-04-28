@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useEffect, useMemo } from "react"
+import { useReducer, useCallback, useEffect, useMemo, useRef } from "react"
 import { Effect, Option, pipe } from "effect"
 import type { AppPage } from "../state/AppState"
 import { AppPage as AP, getCtx, getUI } from "../state/AppState"
@@ -136,11 +136,22 @@ export function useAppStore() {
     [runEffect],
   )
 
+  // Use a ref so handleToggleFavorite stays stable across renders — required
+  // for React.memo on MosaicView/ListView card cells to skip re-renders when
+  // a single favorite toggle changes only one card.
+  const cardsRef = useRef(cards)
+  cardsRef.current = cards
+
   const handleToggleFavorite = useCallback(
     (id: CardId) => {
-      runEffect(AppEffects.toggleFavorite(cards, id))
+      runEffect(AppEffects.toggleFavorite(cardsRef.current, id))
     },
-    [cards, runEffect],
+    [runEffect],
+  )
+
+  const handleSelectCardIndex = useCallback(
+    (i: number) => dispatch(AppAction.SelectCard({ index: i })),
+    [],
   )
 
   const handleClear = useCallback(() => {
@@ -219,6 +230,7 @@ export function useAppStore() {
     handleUpdate,
     handleDelete,
     handleToggleFavorite,
+    handleSelectCardIndex,
     handleClear,
     handleDisambiguationFinish,
     handleSwipe,
