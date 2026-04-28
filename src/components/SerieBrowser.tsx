@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from "react"
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 import type { Card } from "../domain/Card"
 import { makeCard, makeCardId, IdCard } from "../domain/Card"
 import { fromDotgg, CATEGORY_COLORS } from "../domain/Rarity"
 import { Empty } from "../domain/Price"
+import * as SC from "../domain/SetCode"
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock"
 import {
   buildSetIndex,
@@ -94,7 +95,7 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
   }, [existingCards])
 
   const entryCardId = useCallback((e: SetVariantEntry) =>
-    String(makeCardId(IdCard(e.idcard), fromDotgg(e.variant.r, e.variant.s))),
+    String(makeCardId(IdCard(e.idcard), fromDotgg(e.variant.r, e.variant.s), e.variant.s)),
   [])
 
   const selectedCount = selectedKeys.size
@@ -156,10 +157,18 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
     for (const entry of setEntries) {
       if (!selectedKeys.has(entry.key)) continue
       const rarity = fromDotgg(entry.variant.r, entry.variant.s)
+      // Derive serie from the idcard prefix (canonical), not the navigation set:
+      // a card lives in OP14 set browse but its real serie (used by filters) is its
+      // own idcard prefix — e.g. EB01-023 alt has cs="[OP14-EB04]" but serie=EB01.
+      const serie = pipe(
+        SC.extractFromIdCard(IdCard(entry.idcard)),
+        Option.map(String),
+        Option.getOrElse(() => selectedSet ?? ""),
+      )
       cards.push(
         makeCard({
           idcard: entry.idcard,
-          serie: selectedSet ?? "",
+          serie,
           character: entry.name,
           rarity,
           price: Empty(),

@@ -43,8 +43,12 @@ export interface Card {
 // Smart constructor
 // ---------------------------------------------------------------------------
 
-export const makeCardId = (idcard: IdCard, rarity: Rarity): CardId =>
-  CardId(`${idcard}__${displayRarity(rarity)}`)
+// imageSuffix participates in the id so that two variants of the same idcard with
+// the same effective rarity (e.g. ST21-014 _p1 vs _p2 — both Parallel(SR)) get
+// distinct ids. Without it, finishDisambiguation silently dedupes them and one
+// is lost.
+export const makeCardId = (idcard: IdCard, rarity: Rarity, imageSuffix?: string): CardId =>
+  CardId(`${idcard}__${displayRarity(rarity)}${imageSuffix ? `__${imageSuffix}` : ""}`)
 
 export const makeCard = (params: {
   readonly idcard: string
@@ -61,7 +65,7 @@ export const makeCard = (params: {
   const idcard = IdCard(params.idcard)
   const rarity = params.rarity
   return {
-    id: makeCardId(idcard, rarity),
+    id: makeCardId(idcard, rarity, params.imageSuffix),
     idcard,
     serie: SetCode(params.serie),
     character: CharacterName(params.character),
@@ -86,5 +90,5 @@ export const updateCard = (card: Card, fields: Partial<Omit<Card, "id">>): Card 
 
 export const withNewId = (card: Card): Card => ({
   ...card,
-  id: makeCardId(card.idcard, card.rarity),
+  id: makeCardId(card.idcard, card.rarity, Option.getOrUndefined(card.imageSuffix)),
 })

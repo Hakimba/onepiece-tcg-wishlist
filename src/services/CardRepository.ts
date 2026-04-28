@@ -35,27 +35,25 @@ export class CardRepository extends Context.Tag("CardRepository")<
 
 const CARDS_KEY = "wishlist-cards"
 
-// Legacy format from the old codebase
-interface LegacyCard {
-  id: string
-  serie: string
-  idcard: string
-  character: string
-  rarity: string
-  price: string
-  image?: string
-  buyLink?: string
-  favorite?: boolean
-  edition?: string
-  imageSuffix?: string
-}
-
-const isLegacyCard = (c: unknown): c is LegacyCard =>
-  typeof c === "object" && c !== null && "id" in c && "idcard" in c && typeof (c as LegacyCard).rarity === "string"
-
 import { parseRarityOrUnknown } from "../domain/Rarity"
 import { parsePrice } from "../domain/Price"
 import { makeCard } from "../domain/Card"
+
+// Unwrap a possibly-broken Option<string> back to a plain string|undefined.
+// idb-keyval persists via structuredClone, which strips Option's prototype-based _tag.
+// Without this, Option.isSome/isNone/getOrElse silently misbehave on loaded cards.
+const unwrapOption = (x: unknown): string | undefined => {
+  if (x == null) return undefined
+  if (typeof x === "string") return x
+  if (typeof x === "object") {
+    const o = x as { _tag?: string; value?: unknown }
+    if (o._tag === "Some") return typeof o.value === "string" ? o.value : undefined
+    if (o._tag === "None") return undefined
+    // Cloned Option (no _tag): Some has .value, None is empty
+    if ("value" in o && typeof o.value === "string") return o.value
+  }
+  return undefined
+}
 
 export const CardRepositoryLive = Layer.succeed(
   CardRepository,
@@ -65,26 +63,31 @@ export const CardRepositoryLive = Layer.succeed(
         const raw = await get<unknown[]>(CARDS_KEY)
         if (!raw || raw.length === 0) return [] as Card[]
 
-        // Check if data is in legacy format (string rarity instead of tagged enum)
-        if (raw.length > 0 && isLegacyCard(raw[0])) {
-          return raw.map((c) => {
-            const legacy = c as LegacyCard
-            return makeCard({
-              idcard: legacy.idcard,
-              serie: legacy.serie,
-              character: legacy.character,
-              rarity: parseRarityOrUnknown(legacy.rarity),
-              price: parsePrice(legacy.price),
-              image: legacy.image,
-              buyLink: legacy.buyLink,
-              favorite: legacy.favorite,
-              edition: legacy.edition,
-              imageSuffix: legacy.imageSuffix,
-            })
+        // Always reconstruct cards via makeCard. Two reasons:
+        // 1. Legacy migration: pre-FP-rewrite cards have rarity/price as strings.
+        // 2. Effect Option proto loss: structuredClone strips Option's prototype-based
+        //    _tag, breaking Option.isSome/getOrElse on every card loaded as-is.
+        return raw.map((c) => {
+          const o = c as Record<string, unknown>
+          const rarity = typeof o.rarity === "string"
+            ? parseRarityOrUnknown(o.rarity)
+            : (o.rarity as Card["rarity"])
+          const price = typeof o.price === "string"
+            ? parsePrice(o.price)
+            : (o.price as Card["price"])
+          return makeCard({
+            idcard: typeof o.idcard === "string" ? o.idcard : "",
+            serie: typeof o.serie === "string" ? o.serie : "",
+            character: typeof o.character === "string" ? o.character : "",
+            rarity,
+            price,
+            image: unwrapOption(o.image),
+            buyLink: unwrapOption(o.buyLink),
+            favorite: Boolean(o.favorite),
+            edition: unwrapOption(o.edition),
+            imageSuffix: unwrapOption(o.imageSuffix),
           })
-        }
-
-        return raw as Card[]
+        })
       },
       catch: (cause) => new StorageError({ cause }),
     }),

@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { imageCacheGet, imageCachePut, canvasToBlob } from "../services/ImageCacheRepository"
 
 const memoryCache = new Map<string, string>()
-const MAX_MEMORY = 200
+// Bumped from 200 to 500 so wishlists with 200+ cards in mosaic don't trigger LRU
+// eviction that revokes blob URLs still referenced by mounted <img> elements.
+const MAX_MEMORY = 500
 
 function evictOldest() {
   if (memoryCache.size <= MAX_MEMORY) return

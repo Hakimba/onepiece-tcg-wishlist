@@ -9,6 +9,7 @@ import * as AppEffects from "../state/AppEffects"
 import { AppRuntime } from "../runtime"
 import type { Card, CardId } from "../domain/Card"
 import { toPredicate, hasActiveFilters } from "../domain/Filter"
+import * as SC from "../domain/SetCode"
 import { comparePrice } from "../domain/Price"
 import { downloadCsv } from "../services/CsvCodec"
 import { extractSharePayload } from "../services/ShareUrl"
@@ -77,8 +78,12 @@ export function useAppStore() {
     [uiOpt],
   )
 
+  // Derive series from idcard prefix (canonical) — matches the Filter.bySeries logic
+  // so the filter pills always match the cards they're intended to filter.
   const allSeries = useMemo(
-    () => [...new Set(cards.map((c) => c.serie))].sort(),
+    () => [...new Set(
+      cards.map((c) => pipe(SC.extractFromIdCard(c.idcard), Option.getOrElse(() => c.serie))),
+    )].sort(),
     [cards],
   )
 

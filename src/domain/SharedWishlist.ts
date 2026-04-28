@@ -111,12 +111,16 @@ export const fromShareable = (
 // Example: OP01-013,3p,_p1\nOP09-071,4\nOP05-119,6,_p4
 // ---------------------------------------------------------------------------
 
+// buyLink may contain commas (e.g. Cardmarket query strings) — URL-encode it so
+// it doesn't shift the field positions on deserialize. Other fields use a fixed
+// alphabet (digits, letters, dashes) so no encoding needed.
 export const serializeCards = (cards: ReadonlyArray<ShareableCard>): string =>
   cards
     .map((c) => {
       const code = RARITY_TO_CODE(c.rarity)
       const fav = c.favorite ? "1" : "0"
-      return `${c.idcard},${code},${c.imageSuffix},${fav},${c.price},${c.buyLink}`
+      const link = c.buyLink ? encodeURIComponent(c.buyLink) : ""
+      return `${c.idcard},${code},${c.imageSuffix},${fav},${c.price},${link}`
     })
     .join("\n")
 
@@ -130,13 +134,17 @@ const parseLine = (line: string): Either.Either<ShareableCard, ShareDecodeError>
     return Either.left(ShareDecodeError.MalformedPayload({ detail: `bad line: ${line}` }))
   }
   const at = (i: number): string => parts[i]?.trim() ?? ""
+  const decodeLink = (s: string): string => {
+    if (s === "") return ""
+    try { return decodeURIComponent(s) } catch { return s }
+  }
   return Either.right({
     idcard: IdCard(at(0).toUpperCase()),
     rarity: codeToRarity(at(1)),
     imageSuffix: at(2),
     favorite: at(3) === "1",
     price: at(4),
-    buyLink: at(5),
+    buyLink: decodeLink(at(5)),
   })
 }
 

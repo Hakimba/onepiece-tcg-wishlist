@@ -64,7 +64,7 @@ export default function DisambiguationQueue({ ambiguous, resolved, mode, onFinis
         item.chosenIndices.map((ci) => {
           const chosen = item.candidates[ci];
           const newRarity = fromDotgg(chosen.rarity, chosen.suffix);
-          const newId = makeCardId(item.card.idcard, newRarity);
+          const newId = makeCardId(item.card.idcard, newRarity, chosen.suffix);
           return {
             ...item.card,
             id: newId,
