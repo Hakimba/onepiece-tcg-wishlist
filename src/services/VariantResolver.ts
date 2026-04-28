@@ -140,6 +140,29 @@ const resolveOne = (
 ): ResolutionResult => {
   const rarity = card.rarity
 
+  // 0. If the card already carries an explicit imageSuffix (CSV re-import,
+  //    previously disambiguated card), match that variant directly. Skip the
+  //    rarity/serie/set pipeline — the suffix already nails down the variant,
+  //    and re-running the pipeline would re-ambiguate cards that the user
+  //    already chose explicitly.
+  const explicitSuffix = Option.getOrUndefined(card.imageSuffix)
+  if (explicitSuffix !== undefined) {
+    const directMatch = entry.variants.find((v) => v.s === explicitSuffix)
+    if (directMatch) {
+      const inExisting = pipe(
+        existingSuffixes,
+        Option.match({
+          onNone: () => false,
+          onSome: (suffixes) => suffixes.has(explicitSuffix),
+        }),
+      )
+      if (inExisting) return ResolutionResult.AlreadyInWishlist()
+      return ResolutionResult.AutoResolved({
+        card: applyResolvedVariant(card, directMatch, entry.name),
+      })
+    }
+  }
+
   // 1. Filter by rarity on ALL variants
   const byRarity = filterByRarity(rarity)(entry.variants)
 
