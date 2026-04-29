@@ -24,7 +24,7 @@ const ListRow = memo(
     const buyLink = Option.getOrNull(card.buyLink);
     const edition = Option.getOrNull(card.edition);
     return (
-      <div className="list-row" onClick={() => onSelect(index)}>
+      <div className="list-row" data-card-id={card.id} onClick={() => onSelect(index)}>
         <span className="col-markers">
           <button
             className={`marker-star ${card.favorite ? 'active' : ''}`}
