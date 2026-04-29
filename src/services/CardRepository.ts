@@ -55,40 +55,43 @@ const unwrapOption = (x: unknown): string | undefined => {
   return undefined
 }
 
+// Rebuild a card via makeCard to restore Option prototypes lost to structuredClone.
+// Any path that reads cards from IDB and hands them back to the UI must go through
+// this — otherwise downstream Option.* ops misbehave (e.g. resolveImageUrl returns
+// the wrong URL after a single-card mutation, killing every other card's image).
+const rehydrateCard = (c: unknown): Card => {
+  const o = c as Record<string, unknown>
+  const rarity = typeof o.rarity === "string"
+    ? parseRarityOrUnknown(o.rarity)
+    : (o.rarity as Card["rarity"])
+  const price = typeof o.price === "string"
+    ? parsePrice(o.price)
+    : (o.price as Card["price"])
+  return makeCard({
+    idcard: typeof o.idcard === "string" ? o.idcard : "",
+    serie: typeof o.serie === "string" ? o.serie : "",
+    character: typeof o.character === "string" ? o.character : "",
+    rarity,
+    price,
+    image: unwrapOption(o.image),
+    buyLink: unwrapOption(o.buyLink),
+    favorite: Boolean(o.favorite),
+    edition: unwrapOption(o.edition),
+    imageSuffix: unwrapOption(o.imageSuffix),
+  })
+}
+
+const loadAllRehydrated = async (): Promise<Card[]> => {
+  const raw = await get<unknown[]>(CARDS_KEY)
+  if (!raw || raw.length === 0) return []
+  return raw.map(rehydrateCard)
+}
+
 export const CardRepositoryLive = Layer.succeed(
   CardRepository,
   CardRepository.of({
     loadAll: Effect.tryPromise({
-      try: async () => {
-        const raw = await get<unknown[]>(CARDS_KEY)
-        if (!raw || raw.length === 0) return [] as Card[]
-
-        // Always reconstruct cards via makeCard. Two reasons:
-        // 1. Legacy migration: pre-FP-rewrite cards have rarity/price as strings.
-        // 2. Effect Option proto loss: structuredClone strips Option's prototype-based
-        //    _tag, breaking Option.isSome/getOrElse on every card loaded as-is.
-        return raw.map((c) => {
-          const o = c as Record<string, unknown>
-          const rarity = typeof o.rarity === "string"
-            ? parseRarityOrUnknown(o.rarity)
-            : (o.rarity as Card["rarity"])
-          const price = typeof o.price === "string"
-            ? parsePrice(o.price)
-            : (o.price as Card["price"])
-          return makeCard({
-            idcard: typeof o.idcard === "string" ? o.idcard : "",
-            serie: typeof o.serie === "string" ? o.serie : "",
-            character: typeof o.character === "string" ? o.character : "",
-            rarity,
-            price,
-            image: unwrapOption(o.image),
-            buyLink: unwrapOption(o.buyLink),
-            favorite: Boolean(o.favorite),
-            edition: unwrapOption(o.edition),
-            imageSuffix: unwrapOption(o.imageSuffix),
-          })
-        })
-      },
+      try: loadAllRehydrated,
       catch: (cause) => new StorageError({ cause }),
     }),
 
@@ -100,12 +103,11 @@ export const CardRepositoryLive = Layer.succeed(
 
     add: (card) =>
       Effect.gen(function* () {
-        const cards = yield* Effect.tryPromise({
-          try: () => get<Card[]>(CARDS_KEY),
+        const existing = yield* Effect.tryPromise({
+          try: loadAllRehydrated,
           catch: (cause) => new StorageError({ cause }),
         })
-        const existing = cards ?? []
-        if (existing.some((c: Card) => c.id === card.id)) {
+        if (existing.some((c) => c.id === card.id)) {
           return yield* Effect.fail(new DuplicateCardError({ cardId: card.id }))
         }
         const updated = [...existing, card]
@@ -119,9 +121,9 @@ export const CardRepositoryLive = Layer.succeed(
     update: (card, oldId) =>
       Effect.tryPromise({
         try: async () => {
-          const cards = (await get<Card[]>(CARDS_KEY)) ?? []
+          const cards = await loadAllRehydrated()
           const targetId = Option.getOrElse(oldId, () => card.id)
-          const updated = cards.map((c: Card) => c.id === targetId ? card : c)
+          const updated = cards.map((c) => c.id === targetId ? card : c)
           await set(CARDS_KEY, updated)
           return updated as ReadonlyArray<Card>
         },
@@ -131,8 +133,8 @@ export const CardRepositoryLive = Layer.succeed(
     remove: (id) =>
       Effect.tryPromise({
         try: async () => {
-          const cards = (await get<Card[]>(CARDS_KEY)) ?? []
-          const updated = cards.filter((c: Card) => c.id !== id)
+          const cards = await loadAllRehydrated()
+          const updated = cards.filter((c) => c.id !== id)
           await set(CARDS_KEY, updated)
           return updated as ReadonlyArray<Card>
         },
