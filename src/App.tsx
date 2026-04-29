@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Option, pipe } from 'effect';
 import { useAppStore } from './hooks/useAppStore';
 import { useTheme } from './hooks/useTheme';
 import { AppAction } from './state/AppAction';
+import type { Card, CardId } from './domain/Card';
 import { IdCard } from './domain/Card';
 import type { SetCode } from './domain/SetCode';
 import * as SC from './domain/SetCode';
@@ -53,17 +54,63 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const scrollYRef = useRef(0);
   const prevTagRef = useRef(state._tag);
+  const pendingScrollIdRef = useRef<CardId | null>(null);
 
+  // Track scrollY in real time while on Home — capturing it from a useEffect
+  // *after* the transition is too late: CardDetail is shorter, browser clamps
+  // scrollY to 0 before the effect runs.
   useEffect(() => {
+    if (state._tag !== 'Home') return;
+    scrollYRef.current = window.scrollY;
+    const onScroll = () => { scrollYRef.current = window.scrollY; };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [state._tag]);
+
+  // On return to Home, either scroll to a freshly added card or restore the
+  // saved scroll position. Retry across frames because the mosaic/list layout
+  // height isn't always settled on the first frame.
+  useLayoutEffect(() => {
     const prev = prevTagRef.current;
     prevTagRef.current = state._tag;
-    if (prev === 'Home' && state._tag !== 'Home') {
-      scrollYRef.current = window.scrollY;
+    if (state._tag !== 'Home') return;
+
+    const pendingId = pendingScrollIdRef.current;
+    if (pendingId) {
+      pendingScrollIdRef.current = null;
+      let frames = 0;
+      const tryScroll = () => {
+        const el = document.querySelector(
+          `[data-card-id="${CSS.escape(pendingId)}"]`,
+        ) as HTMLElement | null;
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          return;
+        }
+        if (frames < 10) { frames++; requestAnimationFrame(tryScroll); }
+      };
+      tryScroll();
+      return;
     }
-    if (prev !== 'Home' && state._tag === 'Home') {
-      requestAnimationFrame(() => window.scrollTo(0, scrollYRef.current));
+
+    if (prev !== 'Home' && scrollYRef.current > 0) {
+      const target = scrollYRef.current;
+      let frames = 0;
+      const apply = () => {
+        window.scrollTo(0, target);
+        if (Math.abs(window.scrollY - target) > 2 && frames < 10) {
+          frames++;
+          requestAnimationFrame(apply);
+        }
+      };
+      apply();
     }
   }, [state._tag]);
+
+  const handleAddWithScroll = useCallback((card: Card) => {
+    pendingScrollIdRef.current = card.id;
+    handleAdd(card);
+  }, [handleAdd]);
 
   const validPrefixes = useMemo((): ReadonlySet<SetCode> => {
     const s = new Set<SetCode>();
@@ -147,8 +194,11 @@ function App() {
       <>
         {drawer}
         <AddCardForm
-          onAdd={handleAdd}
-          onCancel={() => dispatch(AppAction.HideAdd())}
+          onAdd={handleAddWithScroll}
+          onCancel={() => {
+            pendingScrollIdRef.current = null;
+            dispatch(AppAction.HideAdd());
+          }}
           error={state.error}
           validPrefixes={validPrefixes}
         />
