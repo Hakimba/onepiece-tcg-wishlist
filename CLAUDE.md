@@ -71,9 +71,11 @@ src/
 ├── styles/app.css       — design flat sombre + light mode, optimisé iPhone
 public/
 ├── sp-index.json        — index SP pré-généré (idcard → suffixe _pN)
-└── variants-index.json  — index variantes pré-généré (2747 cartes avec variantes)
+├── set-names.json       — code extension → nom lisible (OP16 → "The Time of Battle")
+├── set-lists.json       — listes de cartes faisant autorité (sets PRB)
+└── variants-index.json  — index variantes pré-généré (cartes avec variantes)
 scripts/
-└── gen-variants-index.sh — génère variants-index.json depuis l'API dotgg
+└── gen_card_data.py     — génère les 4 JSON de public/ (dotgg + limitlesstcg)
 ```
 
 ## Système d'images
@@ -83,7 +85,7 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 - Le fichier `sp-index.json` est généré à partir de l'API `api.dotgg.gg` (fetch cross-origin bloqué par CORS, donc pré-généré côté serveur)
 - Le service worker cache les images en CacheFirst (30 jours)
 - Override manuel possible via "Remplacer l'image" dans CardDetail (stocké en base64 dans IndexedDB)
-- Pour régénérer l'index SP : `curl -s "https://api.dotgg.gg/cgfw/getcards?game=onepiece" | python3 -c "import json,sys; d=json.load(sys.stdin); idx={c['id_normal']:c['id'][len(c['id_normal']):] for c in d if c.get('rarity')=='SP CARD' and c['id']!=c['id_normal']}; json.dump(idx,open('public/sp-index.json','w'),indent=2)"`
+- Pour régénérer l'index SP : `npm run update-data` (voir « Mise à jour des données cartes »)
 
 ## Désambiguïsation des variantes
 À l'import CSV ou ajout manuel, si une carte a plusieurs variantes possibles, l'app affiche un écran de désambiguïsation. Deux modes : `import` (remplacement wishlist) et `add` (append).
@@ -108,9 +110,40 @@ Les images sont servies automatiquement depuis le CDN `static.dotgg.gg` :
 - Les cartes non résolues sont ignorées
 
 ### Index
-- `public/variants-index.json` pré-généré via `scripts/gen-variants-index.sh`
+- `public/variants-index.json` pré-généré via `scripts/gen_card_data.py`
 - Structure : `{ "OP09-004": { "name": "Shanks", "variants": [{ "s": "_p3", "r": "SP CARD", "cs": "[OP-09]" }, ...] } }`
-- Pour régénérer : `./scripts/gen-variants-index.sh > public/variants-index.json`
+- Pour régénérer : `npm run update-data`
+
+## Mise à jour des données cartes
+
+Les 4 JSON de `public/` sont générés par `scripts/gen_card_data.py` (`npm run update-data`) :
+
+| Fichier | Source | Contenu |
+|---|---|---|
+| `variants-index.json` | dotgg | nom + variantes (suffixe, rareté, `cs`) par carte |
+| `sp-index.json` | dotgg | suffixe image des SP CARD |
+| `set-names.json` | limitlesstcg | code extension → nom affiché dans l'import par série |
+| `set-lists.json` | limitlesstcg | listes faisant autorité pour les sets PRB |
+
+**Automatique** : `.github/workflows/update-card-data.yml` tourne tous les lundis 06:00 UTC,
+régénère, vérifie que le build passe, commit sur master et déclenche le déploiement.
+Lançable à la main via l'onglet Actions (`workflow_dispatch`).
+
+**Garde-fous** — le script sort en erreur sans rien écrire si :
+- l'API dotgg renvoie autre chose qu'une liste non vide, ou a perdu un champ attendu
+- un fichier perdrait plus de 10 % de ses entrées par rapport au commit précédent
+- le scrape limitless ne renvoie plus rien pour un set déjà présent dans `set-lists.json`
+
+C'est ce qui permet le commit direct sur master : une panne amont fait échouer le job
+au lieu de publier des données tronquées.
+
+**Noms de sets** — priorité : table limitless > page limitless du set > nom déjà commité >
+champ `cs` de dotgg. Le nom déjà commité reste dans la chaîne pour qu'un nom connu ne soit
+jamais perdu (c'est ce qui porte EB04, absent de limitless). Un code inconnu s'affiche tel
+quel dans l'UI, sans casser l'écran.
+
+**Nouveau set** — rien à coder : il apparaît au prochain run du cron. Les sets de la famille
+`PRB` sont détectés par préfixe, donc PRB03 sera couvert automatiquement.
 
 ## Système de raretés
 Modélisé par `Rarity` TaggedEnum dans `domain/Rarity.ts` :
@@ -340,6 +373,13 @@ Revenir à l'étape 1 avec la carte suivante. Respecter le rythme (5-8s entre le
 - En cas de doute, le prix est un bon indicateur : une AA est bien plus chère que la version standard
 
 ### Noms des sets (pour les URL)
+
+> ⚠️ Table à vérifier : elle diverge de `public/set-names.json` (source limitlesstcg) sur
+> deux entrées — OP09 y est « The-Four-Emperors » et OP11 « Emperors-in-the-New-World »,
+> alors que les noms officiels sont OP09 = *Emperors in the New World* et
+> OP11 = *A Fist of Divine Speed*. Les URL de ces deux sets sont donc probablement fausses.
+> Non corrigé ici faute d'avoir pu confirmer le nommage exact côté Cardmarket.
+> OP12 et OP16 manquent également.
 
 | Code | Nom URL |
 |---|---|
