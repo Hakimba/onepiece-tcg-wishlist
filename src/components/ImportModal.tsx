@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react"
 import type { Card } from "../domain/Card"
 import type { VariantsIndex } from "../services/VariantResolver"
-import type { SetLists } from "../domain/SetIndex"
+import type { SetLists, SetNames } from "../domain/SetIndex"
 import SerieBrowser from "./SerieBrowser"
 
 // ---------------------------------------------------------------------------
@@ -14,6 +14,7 @@ interface Props {
   onImportBySerie: (cards: ReadonlyArray<Card>) => void
   variantsIndex: VariantsIndex
   setLists: SetLists
+  setNames: SetNames
   existingCards: ReadonlyArray<Card>
 }
 
@@ -29,6 +30,7 @@ export default function ImportModal({
   onImportBySerie,
   variantsIndex,
   setLists,
+  setNames,
   existingCards,
 }: Props) {
   const [step, setStep] = useState<Step>("picker")
@@ -62,6 +64,7 @@ export default function ImportModal({
       <SerieBrowser
         variantsIndex={variantsIndex}
         setLists={setLists}
+        setNames={setNames}
         existingCards={existingCards}
         onConfirm={onImportBySerie}
         onBack={() => setStep("picker")}

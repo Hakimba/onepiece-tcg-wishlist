@@ -23,65 +23,19 @@ export interface SetVariantEntry {
 }
 
 // ---------------------------------------------------------------------------
-// SET_NAMES — mapping code → nom d'extension
-// Dérivé du champ cs pour la majorité, hardcodé pour les 5 sets manquants.
+// SetNames — code d'extension → nom lisible.
+// Généré dans public/set-names.json par scripts/gen_card_data.py (source
+// limitlesstcg), donc un nouveau set arrive sans toucher au code. Un code
+// inconnu retombe sur lui-même : l'UI reste utilisable avant régénération.
 // ---------------------------------------------------------------------------
 
-export const SET_NAMES: Readonly<Record<string, string>> = {
-  OP01: "Romance Dawn",
-  OP02: "Paramount War",
-  OP03: "Pillars of Strength",
-  OP04: "Kingdoms of Intrigue",
-  OP05: "Awakening of the New Era",
-  OP06: "Wings of the Captain",
-  OP07: "500 Years in the Future",
-  OP08: "Two Legends",
-  OP09: "Emperors in the New World",
-  OP10: "Royal Blood",
-  OP11: "A Fist of Divine Speed",
-  OP12: "Legacy of the Master",
-  OP13: "Carrying on His Will",
-  OP14: "The Azure Sea's Seven",
-  OP15: "Adventure on Kami's Island",
-  EB01: "Memorial Collection",
-  EB02: "Anime 25th Collection",
-  EB03: "One Piece Heroines Edition",
-  EB04: "Egghead Crisis",
-  ST01: "Straw Hat Crew",
-  ST02: "Worst Generation",
-  ST03: "The Seven Warlords of the Sea",
-  ST04: "Animal Kingdom Pirates",
-  ST05: "One Piece Film Edition",
-  ST06: "Absolute Justice",
-  ST07: "Big Mom Pirates",
-  ST08: "Monkey D. Luffy",
-  ST09: "Yamato",
-  ST10: "The Three Captains",
-  ST11: "Uta",
-  ST12: "Zoro & Sanji",
-  ST13: "The Three Brothers",
-  ST14: "3D2Y",
-  ST15: "Red Edward.Newgate",
-  ST16: "Green Uta",
-  ST17: "Blue Donquixote Doflamingo",
-  ST18: "Purple Monkey.D.Luffy",
-  ST19: "Black Smoker",
-  ST20: "Yellow Charlotte Katakuri",
-  ST21: "Gear 5",
-  ST22: "Ace & Newgate",
-  ST23: "Red Shanks",
-  ST24: "Green Jewelry Bonney",
-  ST25: "Blue Buggy",
-  ST26: "Purple/Black Monkey.D.Luffy",
-  ST27: "Black Marshall.D.Teach",
-  ST28: "Green/Yellow Yamato",
-  ST29: "Egghead",
-  ST30: "Straw Hat Pirates",
-  PRB01: "One Piece Card The Best",
-  PRB02: "One Piece Card The Best Vol.2",
-  DON: "DON!! Card",
-  P: "Promos",
-}
+export type SetNames = Readonly<Record<string, string>>
+
+export const setName = (names: SetNames, code: string): string =>
+  pipe(
+    Option.fromNullable(names[code]),
+    Option.getOrElse(() => code),
+  )
 
 // ---------------------------------------------------------------------------
 // buildSetIndex — one entry per variant, grouped by normalised set code

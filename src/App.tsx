@@ -230,6 +230,7 @@ function App() {
           onImportBySerie={handleImportBySerie}
           variantsIndex={ctx.variantsIndex}
           setLists={ctx.setLists}
+          setNames={ctx.setNames}
           existingCards={ctx.cards}
         />
       )}

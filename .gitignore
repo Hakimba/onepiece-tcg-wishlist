@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+__pycache__/
+
+# Outils agent (skills installes localement + reglages perso)
+.agents/
+.claude/
+skills-lock.json
 
 # Editor directories and files
 .vscode/*

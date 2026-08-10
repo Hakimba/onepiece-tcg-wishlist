@@ -12,9 +12,9 @@ import {
   filterByRarities,
   sortedSetCodes,
   groupByCategory,
-  SET_NAMES,
+  setName,
 } from "../domain/SetIndex"
-import type { SetVariantEntry, SetLists } from "../domain/SetIndex"
+import type { SetVariantEntry, SetLists, SetNames } from "../domain/SetIndex"
 import type { VariantsIndex } from "../services/VariantResolver"
 import { variantImageUrl } from "../services/ImageResolver"
 import RarityBadge from "./RarityBadge"
@@ -54,6 +54,7 @@ const RARITY_LABELS: Readonly<Record<string, string>> = {
 interface Props {
   variantsIndex: VariantsIndex
   setLists: SetLists
+  setNames: SetNames
   existingCards: ReadonlyArray<Card>
   onConfirm: (cards: ReadonlyArray<Card>) => void
   onBack: () => void
@@ -63,7 +64,7 @@ interface Props {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function SerieBrowser({ variantsIndex, setLists, existingCards, onConfirm, onBack }: Props) {
+export default function SerieBrowser({ variantsIndex, setLists, setNames, existingCards, onConfirm, onBack }: Props) {
   useBodyScrollLock(true)
   const isMobile = useIsMobile()
   const [selectedSet, setSelectedSet] = useState<string | null>(null)
@@ -205,7 +206,7 @@ export default function SerieBrowser({ variantsIndex, setLists, existingCards, o
             <optgroup key={category} label={category}>
               {codes.map((code) => (
                 <option key={code} value={code}>
-                  {code} — {SET_NAMES[code] ?? code}
+                  {code} — {setName(setNames, code)}
                 </option>
               ))}
             </optgroup>

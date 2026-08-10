@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [master]
+  # Allows update-card-data.yml to deploy after committing fresh data:
+  # a GITHUB_TOKEN push does not trigger workflows on its own.
+  workflow_dispatch:
 
 permissions:
   contents: read

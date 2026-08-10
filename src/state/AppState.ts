@@ -5,7 +5,7 @@ import { defaultFilters } from "../domain/Filter"
 import type { AmbiguousCard, DisambiguationMode } from "../domain/Disambiguation"
 import type { SpIndex } from "../services/ImageResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
-import type { SetLists } from "../domain/SetIndex"
+import type { SetLists, SetNames } from "../domain/SetIndex"
 
 // ---------------------------------------------------------------------------
 // View modes
@@ -23,6 +23,7 @@ export interface AppContext {
   readonly spIndex: SpIndex
   readonly variantsIndex: VariantsIndex
   readonly setLists: SetLists
+  readonly setNames: SetNames
 }
 
 // ---------------------------------------------------------------------------

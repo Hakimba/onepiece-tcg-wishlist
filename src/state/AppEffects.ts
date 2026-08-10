@@ -1,6 +1,12 @@
 import { Effect, Either, Option, pipe } from "effect"
 import { CardRepository } from "../services/CardRepository"
-import { SpIndexService, VariantsIndexService, SetListsService } from "../services/IndexLoader"
+import {
+  SpIndexService,
+  VariantsIndexService,
+  SetListsService,
+  SetNamesService,
+} from "../services/IndexLoader"
+import type { SetLists, SetNames } from "../domain/SetIndex"
 import { parseCsv } from "../services/CsvCodec"
 import { resolveVariants } from "../services/VariantResolver"
 import type { VariantsIndex } from "../services/VariantResolver"
@@ -23,15 +29,17 @@ export const loadApp = Effect.gen(function* () {
   const spService = yield* SpIndexService
   const viService = yield* VariantsIndexService
   const slService = yield* SetListsService
+  const snService = yield* SetNamesService
 
-  const [cards, spIndex, variantsIndex, setLists] = yield* Effect.all([
+  const [cards, spIndex, variantsIndex, setLists, setNames] = yield* Effect.all([
     repo.loadAll,
     Effect.orElseSucceed(spService.load, () => new Map() as ReadonlyMap<string, string>),
     Effect.orElseSucceed(viService.load, () => ({}) as VariantsIndex),
-    Effect.orElseSucceed(slService.load, () => ({}) as import("../domain/SetIndex").SetLists),
+    Effect.orElseSucceed(slService.load, () => ({}) as SetLists),
+    Effect.orElseSucceed(snService.load, () => ({}) as SetNames),
   ], { concurrency: "unbounded" })
 
-  return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }))
+  return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists, setNames }))
 })
 
 // ---------------------------------------------------------------------------
@@ -43,11 +51,13 @@ export const loadSharedView = (encoded: string) =>
     const spService = yield* SpIndexService
     const viService = yield* VariantsIndexService
     const slService = yield* SetListsService
+    const snService = yield* SetNamesService
 
-    const [spIndex, variantsIndex, setLists] = yield* Effect.all([
+    const [spIndex, variantsIndex, setLists, setNames] = yield* Effect.all([
       Effect.orElseSucceed(spService.load, () => new Map() as ReadonlyMap<string, string>),
       Effect.orElseSucceed(viService.load, () => ({}) as VariantsIndex),
-      Effect.orElseSucceed(slService.load, () => ({}) as import("../domain/SetIndex").SetLists),
+      Effect.orElseSucceed(slService.load, () => ({}) as SetLists),
+      Effect.orElseSucceed(snService.load, () => ({}) as SetNames),
     ], { concurrency: "unbounded" })
 
     const decoded = decodeShareUrl(encoded, variantsIndex)
@@ -55,7 +65,7 @@ export const loadSharedView = (encoded: string) =>
     if (Either.isLeft(decoded)) {
       const repo = yield* CardRepository
       const cards = yield* repo.loadAll
-      return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists }))
+      return action(AppAction.Loaded({ cards, spIndex, variantsIndex, setLists, setNames }))
     }
 
     return action(AppAction.SharedLoaded({
@@ -63,6 +73,7 @@ export const loadSharedView = (encoded: string) =>
       spIndex,
       variantsIndex,
       setLists,
+      setNames,
     }))
   })
 

@@ -1,6 +1,11 @@
 import { Layer, ManagedRuntime } from "effect"
 import { CardRepositoryLive } from "./services/CardRepository"
-import { SpIndexServiceLive, VariantsIndexServiceLive, SetListsServiceLive } from "./services/IndexLoader"
+import {
+  SpIndexServiceLive,
+  VariantsIndexServiceLive,
+  SetListsServiceLive,
+  SetNamesServiceLive,
+} from "./services/IndexLoader"
 
 // ---------------------------------------------------------------------------
 // App Layer — composes all service implementations
@@ -11,6 +16,7 @@ export const AppLayer = Layer.mergeAll(
   SpIndexServiceLive,
   VariantsIndexServiceLive,
   SetListsServiceLive,
+  SetNamesServiceLive,
 )
 
 // ---------------------------------------------------------------------------

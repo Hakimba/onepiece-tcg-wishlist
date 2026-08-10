@@ -30,6 +30,7 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
           spIndex: action.spIndex,
           variantsIndex: action.variantsIndex,
           setLists: action.setLists,
+          setNames: action.setNames,
         },
         ui: defaultUIState,
       })
@@ -96,6 +97,7 @@ export const appReducer = (state: AppPage, action: AppAction): AppPage => {
           spIndex: action.spIndex,
           variantsIndex: action.variantsIndex,
           setLists: action.setLists,
+          setNames: action.setNames,
         },
         ui: defaultUIState,
       })

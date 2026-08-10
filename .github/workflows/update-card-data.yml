@@ -1,0 +1,81 @@
+name: Update card data
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC. New sets ship every few weeks, promos more often.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: update-card-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Aborts non-zero if the upstream data looks degraded, so a bad
+      # scrape fails the run instead of being committed straight to prod.
+      - name: Regenerate card data
+        env:
+          SUMMARY_FILE: ${{ runner.temp }}/summary.txt
+        run: python3 scripts/gen_card_data.py
+
+      # --porcelain rather than `git diff`, so a brand new data file counts too.
+      - name: Check for changes
+        id: diff
+        run: |
+          if [ -z "$(git status --porcelain -- public/)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun changement dans public/." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short -- public/ >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The app must still build with the new data before any of it reaches prod.
+      - name: Verify build
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+
+      - name: Commit
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/
+          git commit -F - <<EOF
+          chore(data): mise a jour des donnees cartes
+
+          $(cat "${{ runner.temp }}/summary.txt")
+
+          Genere par .github/workflows/update-card-data.yml
+          EOF
+          git push origin master
+
+      # A GITHUB_TOKEN push does not trigger other workflows, so deploy.yml
+      # would never fire on its own. Dispatch it explicitly.
+      - name: Trigger deploy
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref master
