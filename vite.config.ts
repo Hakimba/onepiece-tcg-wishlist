@@ -21,6 +21,14 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Le defaut ne couvre pas .json, donc les index cartes n'etaient jamais
+        // precaches : hors ligne, chaque fetch echouait et l'app retombait sur
+        // un index vide (import par serie vide, images SP non resolues).
+        // Ils sont charges a chaque demarrage, pas seulement a l'import.
+        globPatterns: ['**/*.{js,css,html,ico,png,webmanifest,json}'],
+        // Les donnees changent toutes les semaines : sans ca, chaque revision de
+        // variants-index.json (~450 Ko) s'empilerait dans le cache.
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/static\.dotgg\.gg\/onepiece\/card\/.+\.webp$/,

@@ -145,6 +145,12 @@ quel dans l'UI, sans casser l'écran.
 **Nouveau set** — rien à coder : il apparaît au prochain run du cron. Les sets de la famille
 `PRB` sont détectés par préfixe, donc PRB03 sera couvert automatiquement.
 
+**Hors ligne** — les 4 fichiers sont précachés par le service worker (`globPatterns` dans
+`vite.config.ts` inclut `json`, ce que le défaut ne fait pas). Sans ça chaque fetch échouait
+hors ligne et l'app retombait sur un index vide via le `catchAll` des loaders : import par
+série vide et images SP non résolues. Ils sont chargés à chaque démarrage, pas seulement à
+l'import, donc ce sont des assets critiques et non optionnels.
+
 ## Système de raretés
 Modélisé par `Rarity` TaggedEnum dans `domain/Rarity.ts` :
 - **Standard** : `{ base: C | UC | R | SR | SEC | L }` — rareté de base
